@@ -1,0 +1,70 @@
+
+# Frontend Design System
+
+Purpose: this is the single visual source of truth. Any model touching the UI reads this FIRST,
+so a screen built by Claude on Monday and a screen built by Cursor on Wednesday look like the same product.
+
+## Direction: soft & friendly, professional (Stripe-docs-adjacent)
+
+Not playful/toylike, not corporate/cold. Warm, rounded, generous whitespace, quietly confident.
+
+## Design tokens (use these exact values — don't invent new ones per screen)
+
+```css
+:root {
+  /* Color */
+  --color-bg: #FAFAF9;
+  --color-surface: #FFFFFF;
+  --color-border: #E7E5E4;
+  --color-text-primary: #292524;
+  --color-text-secondary: #78716C;
+  --color-primary: #6366F1;      /* indigo — primary actions */
+  --color-primary-hover: #4F46E5;
+  --color-success: #10B981;      /* signed/completed */
+  --color-warning: #F59E0B;      /* pending/reminder */
+  --color-danger: #EF4444;       /* declined/voided */
+
+  /* Radius — this is what makes it feel "soft" */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  /* Shadow — subtle, never harsh */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-hover: 0 4px 12px rgba(0,0,0,0.08);
+
+  /* Spacing scale (4px base) */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-6: 24px; --space-8: 32px; --space-12: 48px;
+}
+```
+
+## Typography
+
+- Font: `Inter` (system fallback: `-apple-system, sans-serif`) — clean, warm at larger sizes, extremely legible.
+- Headings: semibold (600), not bold (700) — bold reads harsh at this weight of design.
+- Body: 15–16px base, `--color-text-primary`. Secondary/meta text: 13–14px, `--color-text-secondary`.
+
+## Component rules
+
+- **Buttons**: `--radius-md`, no sharp corners anywhere in the app. Primary = filled `--color-primary`. Secondary = outline, `--color-border`. Always a hover state — subtle scale (1.01) or shadow lift, never a jarring color jump.
+- **Cards** (envelope list items, dashboard stats): `--color-surface` background, `--shadow-card`, `--radius-lg`. On hover: `--shadow-hover`.
+- **Status badges** (draft/sent/signed/voided): small rounded pill, colored background at 10% opacity of the status color + full-opacity text of that color. Never a jarring solid-fill badge — keep it soft.
+- **Forms**: label above input (not floating labels — clearer for a document/legal product), generous input padding (`--space-3` vertical), `--radius-sm` on inputs.
+- **Empty states**: never a blank page. Always an icon/illustration + one sentence + a clear CTA (e.g. "No envelopes yet — send your first document").
+
+## Layout
+
+- Max content width `1100px` on dashboard views, centered, generous side padding on mobile.
+- Sidebar nav (not top nav) for the authenticated dashboard — this is the pattern users expect from Docusign/Notion-style tools and it scales better as features grow.
+- The signer-facing view (external, no login) is a SEPARATE, simpler layout — no sidebar, no dashboard chrome, just the document + a clear "Sign" action. Never expose internal app nav to an external signer.
+
+## Recommended implementation
+
+Tailwind CSS + shadcn/ui components as the base, then apply the tokens above via `tailwind.config.js` theme extension. This gives every model a shared, well-documented component vocabulary rather than hand-rolled CSS per screen.
+
+## Before building any screen, check
+
+1. Am I reusing an existing component/pattern from this file, or inventing a new one? (reuse first)
+2. Does this match the token values above exactly, not "close enough" hex codes?
+3. Is the signer-facing view kept visually separate and simpler than the dashboard?

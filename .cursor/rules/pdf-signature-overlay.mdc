@@ -1,0 +1,25 @@
+
+# PDF Signature Overlay
+
+## Two distinct sub-problems — don't conflate them
+
+1. **Field placement (sender side)**: sender drags fields (signature, initials, date, text, checkbox) onto page coordinates. Store as `{page, x, y, width, height, field_type, assigned_signer}` — coordinates as a percentage of page width/height, NOT raw pixels, so it survives different render resolutions.
+2. **Field fulfillment + flattening (signer side)**: once a signer submits, render their input (image or generated cursive text) into the exact field position, then **flatten** — merge the annotation layer into the page content so it can never be edited or extracted as a separate layer again. Flattening is what gives the document legal weight — don't skip it.
+
+## Recommended libraries by stack
+
+- **Python**: `pypdf` for structure/merging, `reportlab` or `pdf2image` + `Pillow` for stamping images onto pages, then re-merge. For form-field-based PDFs, `pdfrw` or `PyMuPDF (fitz)` handles flattening well.
+- **Node**: `pdf-lib` handles overlay + flatten in one library, actively maintained, good default choice.
+- **Existing PDF forms (AcroForms)**: prefer filling native form fields over drawing overlays when the PDF already has them — cleaner, more accessible, easier to flatten correctly.
+
+## Coordinate system gotcha
+
+PDF origin is bottom-left, most UI canvases are top-left. When translating a click position from a browser canvas to PDF coordinates, flip the Y axis: `pdf_y = page_height - canvas_y`. This is the single most common bug in this feature — check it first if fields appear in the wrong place.
+
+## Signature capture on signer side
+
+Three input methods to support: drawn (canvas + touch/mouse), typed (render in a cursive web font, e.g. via a stamped SVG-to-image), or uploaded image. Store the raw signature data (SVG path or image) separately from the flattened PDF, so you have an auditable original.
+
+## Legal note (mention to user, don't decide for them)
+
+Flattened + hash-logged PDFs plus an audit trail are generally what satisfies e-signature frameworks like ESIGN/UETA (US) or eIDAS (EU), but Claude is not a lawyer — tell the user to confirm compliance requirements with counsel for their jurisdiction.

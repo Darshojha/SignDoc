@@ -1,0 +1,57 @@
+
+# API Design Conventions
+
+Purpose of this skill: keep every endpoint in the product consistent, so growth doesn't produce
+five different error formats and three different pagination styles by month six.
+
+## Resource naming
+
+Plural nouns, nested under parent resource:
+```
+POST   /v1/envelopes
+GET    /v1/envelopes/:id
+POST   /v1/envelopes/:id/send
+POST   /v1/envelopes/:id/void
+GET    /v1/envelopes/:id/signers
+POST   /v1/envelopes/:id/signers/:signer_id/sign
+GET    /v1/envelopes/:id/audit-events
+```
+Actions that aren't pure CRUD (send, void, sign, remind) are sub-resource POSTs, not new top-level verbs.
+
+## Standard error shape (use everywhere, no exceptions)
+
+```json
+{
+  "error": {
+    "code": "envelope_not_signable",
+    "message": "This envelope is voided and can no longer be signed.",
+    "field": null
+  }
+}
+```
+`code` is machine-readable and stable (frontend/SDKs branch on it); `message` is human-readable and can change.
+
+## Pagination
+
+Cursor-based, not offset-based, once envelope volume matters:
+```
+GET /v1/envelopes?limit=25&cursor=eyJpZCI6MTIzfQ
+```
+Response includes `next_cursor: string | null`. Offset pagination is fine for a very early MVP — flag it as tech debt if the user wants to ship fast now.
+
+## Webhooks (this product needs them — external systems care when a doc is signed)
+
+- Event naming: `envelope.sent`, `envelope.completed`, `envelope.voided`, `signer.signed`, `signer.declined`.
+- Always include a `webhook_id` and `sent_at`, and sign the payload (HMAC with a per-org secret) so receivers can verify authenticity.
+- Retry with exponential backoff on non-2xx; log delivery attempts for the user to debug in a dashboard.
+
+## Versioning
+
+Prefix the URL path (`/v1/`) rather than header-based versioning — simpler for signer-facing integrations to reason about. Don't introduce `/v2/` until there's an actual breaking change to ship.
+
+## When reviewing a new endpoint, check
+
+1. Does it follow the naming pattern above?
+2. Does every error path return the standard error shape?
+3. Is pagination consistent with existing list endpoints?
+4. Is the response scoped to the authenticated org/user (see auth-and-permissions skill)?

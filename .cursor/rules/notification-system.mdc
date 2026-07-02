@@ -1,0 +1,33 @@
+
+# Notification System
+
+## Event-driven, not polling
+
+Every status transition in the document-workflow-engine skill should emit an event; this skill's job
+is to fan that event out to the right channels. Don't check-and-notify from inside HTTP request handlers directly — use a job queue (e.g. BullMQ for Node, Celery for Python) so a slow email provider never blocks a signing request.
+
+## Notification triggers to implement
+
+| Event | Recipient | Channel |
+|---|---|---|
+| envelope.sent | next signer(s) in order | email (required) |
+| signer.viewed | envelope owner | email digest or in-app, not always immediate |
+| signer.signed | next signer (if sequential) + owner | email |
+| envelope.completed | all signers + owner | email w/ signed doc attached or link |
+| envelope.declined | owner | email, immediate |
+| reminder (configurable, e.g. 3 days idle) | pending signer | email |
+| envelope.expiring_soon | pending signer + owner | email |
+
+## Reminder scheduling
+
+Store `next_reminder_at` on `envelope_signers`; a scheduled job (cron every 15–60 min) queries signers past that timestamp who are still pending, sends a reminder, and updates the timestamp — don't create one-off timers per signer, they don't survive server restarts.
+
+## Email content rules
+
+- Never put the actual document content in the email body — link to a secure signer link (see auth-and-permissions skill).
+- Every signer-facing email needs a clear CTA button and a plain-text fallback link.
+- Include a way to view "why am I getting this" (which envelope, which sender) for spam/support reasons.
+
+## Webhook delivery to external customers
+
+Covered in detail in api-design-conventions skill — this skill just needs to know: an outbound webhook is itself a "notification" and should go through the same job queue with retry logic, not fired synchronously.

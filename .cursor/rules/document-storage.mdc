@@ -1,0 +1,42 @@
+
+# Document Storage
+
+## Decision made: cloud storage (Supabase Storage)
+
+Don't re-litigate this per feature — every upload/download in this app goes through Supabase Storage, not local disk, not a different provider. Consistency here matters more than which provider is "best."
+
+## Bucket structure
+
+```
+envelopes/
+  {envelope_id}/
+    original/{document_name}.pdf      -- as uploaded, never modified
+    signed/{document_name}.pdf        -- final flattened + signed version
+    certificate.pdf                   -- certificate of completion (see audit skill)
+```
+Keep `original` and `signed` separate — never overwrite the original. If something is disputed later, you need both.
+
+## Access pattern
+
+- **Never make the bucket public.** All access goes through signed, expiring URLs generated server-side.
+- Dashboard (account holder) view: generate a signed URL scoped to their session, short expiry (e.g. 10 min), regenerate on each page load.
+- Signer view: generate a signed URL scoped to that signer's magic-link token (see auth-and-permissions skill) — the URL itself should not be guessable or reusable outside that flow.
+
+## Upload flow
+
+1. Client requests a signed *upload* URL from your API (never upload directly with a static API key from the browser).
+2. Server validates: file type (PDF only, unless the user explicitly wants multi-format support), file size limit (set one — e.g. 25MB — and surface it in the UI, don't let it fail silently).
+3. Client uploads directly to storage using the signed URL (keeps large files off your API server).
+4. Server records the storage path in `envelope_documents.file_url` only after upload confirms — never write the DB row optimistically before the file exists.
+
+## Environment variables needed (set these up on day 1, not later)
+
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=   # server-only, never expose to client
+```
+
+## Common mistake to avoid
+
+Storing the Supabase public/anon key in a way that lets a client generate arbitrary signed URLs for other envelopes. Every signed-URL request must be authorized server-side against that specific user/signer's access rights first — the storage layer has no idea what an "envelope" or "signer" is, so your API is the only place that check can happen.

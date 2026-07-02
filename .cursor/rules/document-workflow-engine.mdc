@@ -1,0 +1,58 @@
+
+# Document Workflow Engine
+
+This skill encodes the core state machine that makes a signing product actually work.
+Everything else (PDFs, auth, notifications) hangs off this backbone, so build it first.
+
+## The core model
+
+An **Envelope** is the unit of work — one or more documents + one or more signers.
+
+States (this is the part most beginners get wrong — don't skip statuses):
+```
+DRAFT -> SENT -> (VIEWED) -> (PARTIALLY_SIGNED) -> COMPLETED
+                                                  -> DECLINED
+                                                  -> VOIDED
+                                                  -> EXPIRED
+```
+
+Rules to enforce in code, not just in the UI:
+1. A signer can only act on an envelope that is `SENT` or `PARTIALLY_SIGNED`.
+2. If signing order is `sequential`, signer N+1 cannot receive/view the document until signer N completes their action.
+3. If signing order is `parallel`, all signers are notified simultaneously.
+4. `COMPLETED` is only reached when every required signer has signed — track this with a signer-level status field, not just a global counter, so partial completion is queryable.
+5. Every state transition writes a row to a simple `envelope_events` table (event_type, actor, timestamp) — this is a lightweight activity log for answering "did they sign yet?", NOT a compliance/legal audit trail. Keep it simple: no IP logging, no document hashing, no certificate generation. Never mutate status without logging the change.
+
+## What to ask the user before writing code
+
+If the user hasn't specified these, ask (don't assume):
+- Sequential or parallel signing, or both (configurable per envelope)?
+- Can a signer delegate/forward to someone else?
+- What happens on decline — does it void the whole envelope or just that signer's branch?
+- Expiration: hard deadline, or reminder-then-expire?
+
+## Data model starting point
+
+```
+envelopes: id, status, created_by, created_at, expires_at, signing_order (enum: sequential|parallel)
+envelope_signers: id, envelope_id, user_email, order_index, status, signed_at, ip_address
+envelope_documents: id, envelope_id, file_url, page_count
+envelope_events: id, envelope_id, actor, event_type, timestamp, metadata (jsonb)
+```
+
+`envelope_events` is your audit trail seed — keep it append-only, never update rows in it.
+
+## Implementation guidance by stack
+
+If the user names a framework, follow it; otherwise ask. Common choices and where the workflow logic should live:
+- **Node/Express or Nest**: implement the state machine as its own service class (`EnvelopeStateMachine`), not scattered across route handlers.
+- **Python/Django or FastAPI**: model status as a `TextChoices`/`Enum`, transitions as methods on the model, guarded by a `can_transition()` check.
+- **Ruby on Rails**: this is a textbook `aasm` or `state_machine` gem use case — recommend it rather than hand-rolling unless the user objects.
+
+Whatever the stack, the transition logic should be centralized in one place that every code path calls — never let a route handler set `status = 'completed'` directly.
+
+## Common mistakes to catch
+
+- Allowing a signature to be recorded without first checking the envelope is in a signable state (race condition risk if two requests hit at once — use a DB-level lock or optimistic concurrency check).
+- Storing signer order as an array on the envelope instead of a row per signer — makes partial status tracking painful later.
+- Treating "viewed" as equivalent to "signed" for compliance purposes — they are legally distinct events and must be logged separately.

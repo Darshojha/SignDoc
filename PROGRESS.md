@@ -1,0 +1,35 @@
+# SignDoc â€” Progress Log
+
+> RULE FOR ALL AGENTS: Read the latest entry before starting work. Append a new entry when you stop â€” even if incomplete. Never delete old entries.
+
+## Session Log
+
+**Earlier history:** Day-1 setup and the initial template work are preserved below in compressed form. The important takeaway is that the app scaffold, env plumbing, and template editor are already in the repo, but the live Supabase database still needs schema work.
+
+### [Date] â€” Agent: (Claude Code / Cursor / Codex)
+**Goal this session:**
+**Done:**
+**Files touched:**
+**Broken / blocked:**
+**Next step:**
+
+### 2026-07-02 (cont.) â€” Agent: Claude Code
+**Goal this session:** Unblock Supabase connection, then build document upload + template field placement UI (document-storage + pdf-signature-overlay + templates-and-bulk-send skills). Stop before signing/sending.
+**Done:** User pasted Supabase credentials into `.env.local.example` (wrong file â€” that one is meant to be committed) with a dashboard URL instead of the API URL. Verified the project is real and reachable (Storage API and REST API both return 200 with the service role key against project ref `nrgofaigzkkiopewovpi`). Moved real secrets to `.env.local` (gitignored via `.env*`), corrected `NEXT_PUBLIC_SUPABASE_URL` to `https://nrgofaigzkkiopewovpi.supabase.co`, and restored `.env.local.example` to blank placeholders.
+**Files touched:** `.env.local` (created, untracked), `.env.local.example`, `PROGRESS.md`.
+**Broken / blocked:** Local dev server and `/api/health` not yet re-verified against the new `.env.local` in this entry â€” do that first in the next step. No DB tables or Storage bucket created yet.
+**Next step:** Confirm `/api/health` returns `ok:true` locally, then build per PROJECT.md scope: create `envelope_documents`-style table (or a simpler `documents` table for pre-envelope uploads) + `envelopes` bucket in Supabase Storage, an upload API route (signed upload URL pattern per document-storage skill), and a template field-placement UI (react-pdf or pdf-lib client render + drag-and-drop overlay per pdf-signature-overlay skill) using frontend-design-system tokens. Stop once a PDF can be uploaded and a signature field placed on it in the UI.
+
+### 2026-07-02 (cont. 2) â€” Agent: Claude Code
+**Goal this session:** Same as above â€” document upload + template field placement UI.
+**Done:** Confirmed `/api/health` returns `ok:true` locally. Created Supabase Storage bucket `templates` (private, PDF-only, 25MB limit) via the Storage API. Wrote SQL migration `supabase/migrations/0001_templates.sql` (table `templates`: id, org_id, created_by, name, storage_path, page_count, field_layout jsonb, timestamps; RLS enabled with no policies since all access is server-side via service-role key â€” org_id/created_by are nullable placeholders for when auth-and-permissions is built). **User needs to run this SQL in the Supabase SQL Editor â€” it has not been run yet.** Installed `pdf-lib` + `react-pdf`, copied `pdf.worker.min.mjs` into `public/` for static serving. Built: `src/lib/templates/{types,db,storage}.ts`, `src/lib/api/errors.ts` (standard error shape per api-design-conventions skill), API routes `POST/GET /api/v1/templates` and `GET/PATCH /api/v1/templates/[id]`, dashboard shell (`(dashboard)/layout.tsx` + `Sidebar`), `/templates` list page (with empty state), `/templates/new` upload form, `/templates/[id]/edit` field-placement editor (`FieldPlacementEditor` â†’ dynamic `ssr:false` wrapper â†’ `FieldPlacementEditorClient` using react-pdf, native HTML5 drag-and-drop from a field palette onto rendered PDF pages, percentage-based coordinates per pdf-signature-overlay skill, Save button PATCHes `field_layout`). `npm run build` compiles cleanly (all routes listed, no type errors).
+**Files touched:** `supabase/migrations/0001_templates.sql`, `src/lib/templates/*.ts`, `src/lib/api/errors.ts`, `src/app/api/v1/templates/route.ts`, `src/app/api/v1/templates/[id]/route.ts`, `src/app/(dashboard)/layout.tsx`, `src/components/layout/Sidebar.tsx`, `src/app/(dashboard)/templates/page.tsx`, `src/app/(dashboard)/templates/new/page.tsx`, `src/components/templates/TemplateUploadForm.tsx`, `src/components/templates/FieldPlacementEditor.tsx`, `src/components/templates/FieldPlacementEditorClient.tsx`, `src/app/(dashboard)/templates/[id]/edit/page.tsx`, `public/pdf.worker.min.mjs`, `.env.local` (created), `.env.local.example` (restored to blanks), `package.json`/`package-lock.json`.
+**Broken / blocked:** **Not yet tested in a real browser** â€” session was interrupted right after `npm run build` succeeded, before `npm run dev` + manual upload/field-placement verification. The `templates` table migration has **not** been run in Supabase yet, so `/templates` and the upload API will fail against the DB until that SQL is executed. Everything downstream of that (upload flow, drag-and-drop correctness, signed URL rendering in react-pdf/Turbopack, whether the worker file loads correctly) is unverified.
+**Next step:** 1) Run `supabase/migrations/0001_templates.sql` in the Supabase SQL Editor. 2) `npm run dev`, open `/templates`, upload a real PDF via `/templates/new`, confirm redirect to the edit page, drag a Signature field onto the page, click Save, reload and confirm the field persisted. 3) Watch specifically for: react-pdf worker loading (`/pdf.worker.min.mjs`), drag-and-drop coordinate accuracy, and the Storage signed-URL round trip. Fix anything broken, then this task (upload + field placement, no signing/sending) is done.
+
+### 2026-07-02 â€” Agent: Codex
+**Goal this session:** Finish the create -> send -> sign envelope cycle and verify it end-to-end.
+**Done:** Read `PROJECT.md`, `PROGRESS.md`, `AGENTS.md`, and `AGENTS_2.md`; inspected the current tree, git state, Supabase migration files, and the live Supabase storage buckets. Added the missing signer-facing magic-link page at `/sign/[token]` plus a client signing view component, and typed the signer context shared by the workflow layer. Confirmed the local app still builds cleanly with `npm run build`, and created the missing live `envelopes` storage bucket in Supabase.
+**Files touched:** `src/lib/envelopes/types.ts`, `src/components/signing/SignerEnvelopeView.tsx`, `src/app/sign/[token]/page.tsx`, `PROGRESS.md`.
+**Broken / blocked:** The live Supabase REST API does not expose the `templates` table (`/rest/v1/templates` returns 404), so template creation fails at the first DB write and the envelope workflow cannot be completed against the real project yet. I could not apply `supabase/migrations/0001_templates.sql` or `0002_envelopes.sql` from this environment because no database password / `SUPABASE_ACCESS_TOKEN` is available here; only the storage bucket can be managed with the current credentials.
+**Next step:** Apply the SQL migrations in the Supabase SQL Editor or provide database credentials/access so the tables can be created, then rerun the browser flow: template upload -> field placement -> envelope creation -> send -> signer magic-link sign -> confirm `COMPLETED` and the activity log entries.

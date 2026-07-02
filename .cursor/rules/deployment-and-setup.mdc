@@ -1,0 +1,44 @@
+
+# Deployment & Setup
+
+## Stack decision (don't re-ask per session)
+
+Next.js (App Router) + Supabase (DB, Auth, Storage) + Vercel (hosting). One repo, one deploy target.
+
+## Day-1 setup checklist (do this before writing any feature code)
+
+1. `npx create-next-app@latest` — TypeScript, App Router, Tailwind: yes.
+2. Create a Supabase project (free tier is enough for personal use). Copy the URL + anon key + service role key.
+3. `.env.local` (never commit this — confirm `.gitignore` includes it):
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=
+   SUPABASE_SERVICE_ROLE_KEY=
+   ```
+4. Connect the GitHub repo to Vercel (import project, it auto-detects Next.js). Add the same env vars in Vercel's dashboard under Settings → Environment Variables — local `.env.local` is NOT automatically used in production.
+5. Push to `main` → confirm it deploys and loads before building a single feature. If this step is skipped, you find out your deploy is broken on day 6 instead of day 1.
+
+## Suggested day-by-day pace for a 1-week solo build
+
+| Day | Focus |
+|---|---|
+| 1 | Setup (above) + auth (account holder login) + base layout using frontend-design-system skill |
+| 2 | Envelope creation: upload document, place signature fields (pdf-signature-overlay skill) |
+| 3 | Signing workflow + state machine (document-workflow-engine skill) |
+| 4 | Signer-facing flow: magic link, view, sign, flatten (auth-and-permissions + pdf-signature-overlay) |
+| 5 | Notifications (email on send/signed/completed) |
+| 6 | Polish UI, empty states, error handling, dashboard views |
+| 7 | Buffer — bugs always take longer than planned. Don't schedule features here. |
+
+## Running locally
+
+```
+npm run dev
+```
+Confirm `.env.local` is populated before running — most "nothing works" issues at the start of a session are a missing env var, check this first.
+
+## Common deploy mistakes
+
+- Forgetting to add env vars to Vercel (works locally, breaks in prod — the #1 issue).
+- Committing `.env.local` by accident — if this happens, rotate the Supabase keys immediately, don't just delete the commit.
+- Supabase Row Level Security (RLS) left disabled — fine for a rushed demo, but for anything touching real documents, enable RLS policies before day 7 even for personal use.

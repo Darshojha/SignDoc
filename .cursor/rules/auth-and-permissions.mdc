@@ -1,0 +1,40 @@
+
+# Auth & Permissions
+
+## Two separate auth systems — this product needs both
+
+1. **Account holders** (people who log in to send/manage envelopes) — normal auth: email/password, OAuth/SSO, sessions or JWT.
+2. **Signers** (people receiving a document to sign) — usually should NOT need a full account. Use a signed, expiring, single-use link (magic link) tied to that specific envelope + signer row. This is what most beginners get wrong by forcing signers to register.
+
+## Recommended signer link design
+
+- Generate a random token (e.g. 32-byte, base64url), store its hash (not the raw token) in `envelope_signers.access_token_hash`.
+- Set an expiration matching the envelope's expiration.
+- On access, verify token hash + envelope status is signable + this signer hasn't already completed.
+- Log the access (IP, timestamp, user agent) as an audit event immediately, even before they sign anything.
+
+## Roles for account holders — v1 scope (single org, no billing)
+
+Keep this simple for v1 — two roles only:
+- `admin` — manage org users, see all envelopes/templates in the org
+- `member` — create/send envelopes, use shared templates, sees their own envelopes plus anything shared with them
+
+Don't build a billing/owner tier or usage quotas for v1 — this app has one org (yours), no plan tiers.
+
+## Out of scope for v1 — do not build yet
+
+**Delegated signing** ("sign on my behalf" / forwarding an envelope to someone else) is a v2 feature. If an AI agent suggests adding it while building auth, defer it — note it as a TODO instead of implementing, to avoid scope creep mid-week.
+
+Enforce these at the query layer (e.g. always scope `WHERE org_id = ? AND (created_by = ? OR role IN ('admin','owner'))`), not just by hiding UI buttons — hidden buttons are not security.
+
+## Stack-specific starting points
+
+- **Node**: `passport.js` or `next-auth`/`Auth.js` for account auth; roll your own lightweight token system for signer links (don't force a full auth library onto guest signers).
+- **Python**: Django's built-in auth + `django-guardian` for object-level permissions, or FastAPI + `fastapi-users`.
+- **Session vs JWT**: for the account-holder side, default to server-side sessions unless the user specifically needs stateless auth (e.g. separate mobile app) — sessions are easier to revoke immediately, which matters for a legal-document product.
+
+## Security musts, not nice-to-haves
+
+- Rate-limit signer link access attempts.
+- Never put PII (name, email) in a JWT payload if it's stored client-side unencrypted.
+- Every permission check should fail closed (deny by default) — ask the user to confirm this is how their framework's guard/middleware is set up if you're not sure.

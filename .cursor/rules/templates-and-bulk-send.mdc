@@ -1,0 +1,44 @@
+
+# Templates & Bulk Send
+
+## What a template actually is
+
+A template = a document + its field layout (signature/date/text positions from the pdf-signature-overlay skill), saved WITHOUT specific signers attached. When someone uses it, they pick real signers and it spins up a normal envelope.
+
+```
+templates: id, org_id, name, created_by, source_document_url, field_layout (jsonb), created_at
+```
+
+`field_layout` stores the same `{page, x, y, width, height, field_type}` shape used for regular envelopes — placeholder roles instead of real people, e.g. `assigned_role: "Signer 1"` instead of a real email. When the template is used, the UI asks the user to map each role to a real signer.
+
+## Creating a template
+
+1. Upload a document (same upload flow as document-storage skill).
+2. Place fields as normal, but assign to a **role label** ("Client", "Manager") instead of an email.
+3. Save — this writes to `templates`, not `envelopes`.
+
+## Using a template
+
+1. Pick a template from the library.
+2. UI shows the role labels, user fills in real names/emails for each.
+3. System creates a new `envelope` + `envelope_signers` rows, copying the field layout from the template with real signer IDs substituted in for the role placeholders.
+4. From here it's a normal envelope — everything in document-workflow-engine applies unchanged.
+
+## Template library
+
+- Scope templates to the org (`org_id`), not just the individual creator — this is the "standardize agreements by sharing with your team" feature. Any user in the org should see the shared library by default; don't build private-only templates for v1 unless asked.
+- Simple search/filter by name is enough for v1 — don't build folders/tagging unless it's clearly needed once you have more than ~10 templates.
+
+## Bulk send
+
+Send the same template to many recipients, each getting their OWN separate envelope (not one shared envelope with many signers — that's a different feature, sequential/parallel multi-signer, already covered elsewhere).
+
+```
+POST /v1/templates/:id/bulk-send
+body: { recipients: [{ name, email }, ...] }
+```
+This should loop and create one envelope per recipient, reusing the template's field layout. Do this as a background job (see notification-system skill's job-queue pattern) if the recipient list is long — don't block the HTTP request on 50 envelope-creation calls.
+
+## What NOT to build for v1
+
+Conditional logic in templates (e.g. "if field X is checked, show field Y") — this is an advanced DocuSign feature, skip it unless you specifically hit a wall without it.
