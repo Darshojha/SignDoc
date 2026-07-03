@@ -46,6 +46,10 @@ function appBaseUrl() {
   );
 }
 
+export function isEnvelopeTerminal(status: EnvelopeStatus) {
+  return status === "COMPLETED" || status === "DECLINED" || status === "VOIDED" || status === "EXPIRED";
+}
+
 function toEnvelope(row: EnvelopeRow): Envelope {
   return row;
 }
@@ -302,7 +306,7 @@ async function getSignerByToken(token: string) {
   return data as EnvelopeSigner | null;
 }
 
-export async function getSignerEnvelopeByToken(token: string) {
+export async function resolveSignerContextByToken(token: string) {
   const signer = await getSignerByToken(token);
   if (!signer) return null;
   if (!signer.access_token_expires_at || Date.now() > Date.parse(signer.access_token_expires_at)) {
@@ -311,6 +315,18 @@ export async function getSignerEnvelopeByToken(token: string) {
 
   const details = await getEnvelopeDetails(signer.envelope_id);
   if (!details || !details.document) return null;
+
+  return {
+    envelope: details,
+    signer,
+    canSign: signerCanAct(details, signer),
+  };
+}
+
+export async function getSignerEnvelopeByToken(token: string) {
+  const tokenContext = await resolveSignerContextByToken(token);
+  if (!tokenContext) return null;
+  const { envelope: details, signer } = tokenContext;
 
   await logEnvelopeEvent({
     envelopeId: details.id,
@@ -358,6 +374,67 @@ export async function getSignerEnvelopeByToken(token: string) {
     canSign: signerCanAct(refreshed, refreshedSigner),
     pdfUrl: await getEnvelopeSignedUrl(refreshed.document.signed_storage_path ?? refreshed.document.storage_path),
   };
+}
+
+export async function declineEnvelopeWithToken(params: {
+  token: string;
+  signerId: string;
+  reason: string;
+}) {
+  const reason = params.reason.trim();
+  if (reason.length === 0) {
+    throw new Error("Provide a decline reason before submitting.");
+  }
+
+  const tokenContext = await resolveSignerContextByToken(params.token);
+  if (!tokenContext) throw new Error("This signing link is invalid or expired.");
+  if (tokenContext.signer.id !== params.signerId) {
+    throw new Error("This signing link does not belong to that signer.");
+  }
+
+  const { envelope, signer } = tokenContext;
+  if (isEnvelopeTerminal(envelope.status) || !signerCanAct(envelope, signer)) {
+    throw new Error("This signer is not allowed to decline this envelope yet.");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const signerUpdate = await supabase
+    .from("envelope_signers")
+    .update({
+      status: "declined",
+      access_token_hash: null,
+    })
+    .eq("id", signer.id);
+
+  if (signerUpdate.error) {
+    throw new Error(`Failed to save decline: ${signerUpdate.error.message}`);
+  }
+
+  await logEnvelopeEvent({
+    envelopeId: envelope.id,
+    actor: signer.user_email,
+    eventType: "signer.declined",
+    metadata: {
+      signer_id: signer.id,
+      assigned_role: signer.assigned_role,
+      reason,
+    },
+  });
+
+  await updateEnvelopeStatus({
+    envelopeId: envelope.id,
+    status: "DECLINED",
+    actor: signer.user_email,
+    eventType: "envelope.declined",
+    extra: { completed_at: null, sent_at: envelope.sent_at ?? now },
+    metadata: {
+      signer_id: signer.id,
+      reason,
+    },
+  });
+
+  return getEnvelopeDetails(envelope.id);
 }
 
 function fieldBelongsToSigner(field: TemplateField, signer: EnvelopeSigner) {
@@ -490,4 +567,3 @@ export async function signEnvelopeWithToken(params: { token: string; signatureTe
 
   return getEnvelopeDetails(envelope.id);
 }
-

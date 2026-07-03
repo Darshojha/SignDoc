@@ -27,12 +27,9 @@ export default async function EnvelopeDetailPage({
           <p className={`mb-3 inline-block rounded-full px-3 py-1 text-xs font-medium ${statusClass(envelope.status)}`}>
             {envelope.status}
           </p>
-          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
-            {envelope.title}
-          </h1>
+          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">{envelope.title}</h1>
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            {envelope.signing_order} signing · expires{" "}
-            {new Date(envelope.expires_at).toLocaleDateString("en-US")}
+            {envelope.signing_order} signing · expires {new Date(envelope.expires_at).toLocaleDateString("en-US")}
           </p>
         </div>
         <SendEnvelopeButton envelopeId={envelope.id} disabled={envelope.status !== "DRAFT"} />
@@ -63,16 +60,21 @@ export default async function EnvelopeDetailPage({
       <section className="mt-6 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-card)]">
         <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Activity</h2>
         <div className="mt-4 grid gap-3">
-          {envelope.events.map((event) => (
-            <div key={event.id} className="rounded-[var(--radius-md)] bg-[#F5F5F4] px-4 py-3">
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                {event.event_type}
-              </p>
-              <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                {event.actor} · {new Date(event.timestamp).toLocaleString("en-US")}
-              </p>
-            </div>
-          ))}
+          {envelope.events.map((event) => {
+            const reason = typeof event.metadata.reason === "string" ? event.metadata.reason.trim() : "";
+
+            return (
+              <div key={event.id} className="rounded-[var(--radius-md)] bg-[#F5F5F4] px-4 py-3">
+                <p className="text-sm font-medium text-[var(--color-text-primary)]">{event.event_type}</p>
+                {reason ? (
+                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Reason: {reason}</p>
+                ) : null}
+                <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                  {event.actor} · {new Date(event.timestamp).toLocaleString("en-US")}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </section>
     </div>

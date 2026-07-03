@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import type { EnvelopeWithDetails, SignerEnvelopeContext } from "@/lib/envelopes/types";
 
 function statusClass(status: string) {
@@ -18,24 +18,33 @@ export function SignerEnvelopeView({
   context: SignerEnvelopeContext;
 }) {
   const [signatureText, setSignatureText] = useState(context.signer.signature_text ?? context.signer.name);
+  const [declineReason, setDeclineReason] = useState("");
   const [envelope, setEnvelope] = useState<EnvelopeWithDetails>(context.envelope);
   const [signer, setSigner] = useState(context.signer);
   const [canSign, setCanSign] = useState(context.canSign);
-  const [status, setStatus] = useState<"idle" | "submitting" | "signed" | "error">(
-    context.signer.status === "signed" ? "signed" : "idle",
+  const [status, setStatus] = useState<
+    "idle" | "submitting" | "declining" | "signed" | "declined" | "error"
+  >(
+    context.signer.status === "signed"
+      ? "signed"
+      : context.signer.status === "declined"
+        ? "declined"
+        : "idle",
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [completedEnvelopeTitle, setCompletedEnvelopeTitle] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const signed = status === "signed" || signer.status === "signed";
+  const declined = status === "declined" || signer.status === "declined";
   const waiting = !canSign && signer.status === "pending";
-  const displayStatus = signed ? "signed" : signer.status;
+  const displayStatus = signed ? "signed" : declined ? "declined" : signer.status;
   const currentCanSign = canSign;
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setStatus("submitting");
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       const res = await fetch(`/api/v1/signing/${token}`, {
@@ -56,8 +65,48 @@ export function SignerEnvelopeView({
         }
         setCanSign(false);
       }
-      setCompletedEnvelopeTitle(data?.envelope?.title ?? envelope.title);
+      setSuccessMessage(`Signed successfully. ${data?.envelope?.title ?? envelope.title} is now complete for this signer.`);
       setStatus("signed");
+    } catch (err) {
+      setStatus("error");
+      setErrorMessage((err as Error).message);
+    }
+  }
+
+  async function handleDecline() {
+    if (!declineReason.trim()) {
+      setErrorMessage("Provide a decline reason before submitting.");
+      return;
+    }
+
+    setStatus("declining");
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const res = await fetch(`/api/v1/envelopes/${envelope.id}/signers/${signer.id}/decline`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Signer-Token": token,
+        },
+        body: JSON.stringify({ reason: declineReason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error?.message ?? "Could not submit the decline.");
+      }
+
+      if (data?.envelope) {
+        setEnvelope(data.envelope);
+        const refreshedSigner = data.envelope.signers.find((candidate: typeof signer) => candidate.id === signer.id);
+        if (refreshedSigner) {
+          setSigner(refreshedSigner);
+        }
+        setCanSign(false);
+      }
+      setStatus("declined");
+      setSuccessMessage("Declined successfully. The envelope is now closed for this signer.");
     } catch (err) {
       setStatus("error");
       setErrorMessage((err as Error).message);
@@ -82,10 +131,15 @@ export function SignerEnvelopeView({
           </span>
         </header>
 
-        {signed && (
+            {signed && (
           <section className="rounded-[var(--radius-lg)] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-[var(--shadow-card)]">
-            Signed successfully.
-            {completedEnvelopeTitle ? ` ${completedEnvelopeTitle} is now complete for this signer.` : null}
+            {successMessage ?? "Signed successfully."}
+          </section>
+        )}
+
+        {declined && (
+          <section className="rounded-[var(--radius-lg)] border border-red-200 bg-red-50 px-4 py-3 text-sm text-[var(--color-danger)] shadow-[var(--shadow-card)]">
+            {successMessage ?? "Declined successfully."}
           </section>
         )}
 
@@ -119,6 +173,10 @@ export function SignerEnvelopeView({
               <p className="mt-4 rounded-[var(--radius-md)] bg-emerald-50 px-3 py-2 text-sm text-[var(--color-success)]">
                 This signer already completed the envelope.
               </p>
+            ) : signer.status === "declined" ? (
+              <p className="mt-4 rounded-[var(--radius-md)] bg-red-50 px-3 py-2 text-sm text-[var(--color-danger)]">
+                This signer already declined the envelope.
+              </p>
             ) : currentCanSign ? (
               <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
@@ -135,19 +193,36 @@ export function SignerEnvelopeView({
                   />
                 </div>
 
-                {errorMessage && (
-                  <p className="rounded-[var(--radius-md)] bg-red-50 px-3 py-2 text-sm text-[var(--color-danger)]">
-                    {errorMessage}
-                  </p>
-                )}
-
                 <button
                   type="submit"
-                  disabled={status === "submitting"}
+                  disabled={status === "submitting" || status === "declining"}
                   className="rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {status === "submitting" ? "Signing..." : "Sign document"}
                 </button>
+
+                <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[#FAFAF9] p-4">
+                  <div className="flex flex-col gap-2">
+                    <label htmlFor="decline_reason" className="text-sm font-medium text-[var(--color-text-primary)]">
+                      Decline reason
+                    </label>
+                    <textarea
+                      id="decline_reason"
+                      value={declineReason}
+                      onChange={(event) => setDeclineReason(event.target.value)}
+                      className="min-h-[110px] rounded-[var(--radius-sm)] border border-[var(--color-border)] px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
+                      placeholder="Explain why you are declining this envelope."
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDecline}
+                    disabled={status === "submitting" || status === "declining"}
+                    className="mt-4 rounded-[var(--radius-md)] bg-[var(--color-danger)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {status === "declining" ? "Declining..." : "Decline document"}
+                  </button>
+                </div>
               </form>
             ) : (
               <p className="mt-4 rounded-[var(--radius-md)] bg-stone-100 px-3 py-2 text-sm text-[var(--color-text-secondary)]">
@@ -179,6 +254,11 @@ export function SignerEnvelopeView({
                   </dd>
                 </div>
               </dl>
+              {errorMessage && (
+                <p className="mt-4 rounded-[var(--radius-md)] bg-red-50 px-3 py-2 text-sm text-[var(--color-danger)]">
+                  {errorMessage}
+                </p>
+              )}
             </div>
           </section>
         </div>
