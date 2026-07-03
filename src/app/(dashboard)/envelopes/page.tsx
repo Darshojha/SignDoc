@@ -37,7 +37,7 @@ export default async function EnvelopesPage() {
       {envelopes.length === 0 ? (
         <div className="mt-10 flex flex-col items-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-16 text-center">
           <p className="text-base font-medium text-[var(--color-text-primary)]">
-            No envelopes yet
+            No envelopes yet - create your first one
           </p>
           <p className="max-w-sm text-sm text-[var(--color-text-secondary)]">
             Create an envelope from a fielded template and send it to a signer.

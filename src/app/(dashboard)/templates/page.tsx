@@ -30,7 +30,7 @@ export default async function TemplatesPage() {
       {templates.length === 0 ? (
         <div className="mt-10 flex flex-col items-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-16 text-center">
           <p className="text-base font-medium text-[var(--color-text-primary)]">
-            No templates yet
+            No templates yet - create your first one
           </p>
           <p className="max-w-sm text-sm text-[var(--color-text-secondary)]">
             Upload your first document and place signature fields on it to create a
