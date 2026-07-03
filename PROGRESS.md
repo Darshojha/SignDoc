@@ -39,3 +39,7 @@
 
 ### 2026-07-03 - Rate limiting verified
 **Done:** Added in-process fixed-window rate limiting for login, signup, and envelope-send with a 5/min/IP ceiling, plus a short project README. Verified in browser/API tests: login returned `429` on the 6th rapid submit, signup returned `429` on the 6th rapid submit, and `POST /api/v1/envelopes/11111111-1111-4111-8111-111111111111/send` returned `404` for attempts 1-5 then `429` on attempt 6 when sent from a fresh test IP. `cmd /c npm run build` passed; targeted lint on the touched files passed. Commit: `044e30d`.
+
+### 2026-07-03 - Owner access verified
+**Done:** Scoped envelope/template reads and writes to the authenticated owner, added a backfill migration for existing `created_by` rows, and wired the dashboard/API routes to pass the logged-in user id through. Browser verification with two accounts (`darsh.ojha@xtransmatrix.com` and `owner-b-1783096429@xtransmatrix.com`) showed owner filtering working: A saw only A-owned rows, B saw only B-owned rows, and direct cross-user access returned `404` for both `/envelopes/[id]`, `/templates/[id]/edit`, and the matching `/api/v1/*/[id]` routes. Code commit: `83b0aa4`.
+**Done:** `cmd /c npm run build` passed and `git push origin main` succeeded for the code commit.
