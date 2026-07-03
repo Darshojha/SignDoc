@@ -24,3 +24,12 @@
 ### 2026-07-03 - Decline flow verified
 **Done:** Verified in a real browser with `scripts/verify-decline-flow.mjs`. Results: current signer decline returned `200` and updated the envelope to `DECLINED` with the reason stored and shown in dashboard Activity; non-current signer decline returned `403`; empty reason returned `400`; completed-envelope decline returned `409`. Commit: `21666d1`.
 **Done:** `cmd /c npm run build` passed; targeted lint on the touched decline-flow files passed; `git push` succeeded.
+
+### 2026-07-03 - Email notifications partial
+**Done:** Wired Resend-backed invitation emails at the actionable signer points in the envelope flow, using deterministic `/sign/[token]` links so the same signer URL can be recreated when a signer's turn arrives later in sequential signing. `cmd /c npm run build` passed; targeted lint on the touched email/workflow files passed.
+**Broken / blocked:** Real inbox verification is blocked in this environment. I could not access a mailbox or external inbox UI from the available tools, so I could not prove delivery or click-through with live email evidence yet.
+**Next step:** Resume once a reachable test inbox or email-capture surface is available, then verify send delivery and link open in a real browser before committing.
+
+### 2026-07-03 - API auth guard verified
+**Done:** Added Supabase-backed session login at `/login` and required a logged-in session for the admin envelope/template API routes under `src/app/api/v1/envelopes` and `src/app/api/v1/templates`. Browser verification results: unauthenticated `GET /api/v1/envelopes`, `GET /api/v1/templates`, `GET /api/v1/envelopes/00000000-0000-0000-0000-000000000000`, `POST /api/v1/envelopes/00000000-0000-0000-0000-000000000000/send`, and `GET /api/v1/templates/00000000-0000-0000-0000-000000000000` all returned `401`; after signing up and logging in through `/login`, `GET /api/v1/envelopes` returned `200`, `GET /api/v1/templates` returned `200`, and `POST /api/v1/envelopes` returned `201` for a one-signer draft envelope. Commit: `3d4d2c1`.
+**Done:** `git push origin main` succeeded.
