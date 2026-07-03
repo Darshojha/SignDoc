@@ -4,13 +4,14 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { getTemplateById } from "@/lib/templates/db";
 import type { TemplateField } from "@/lib/templates/types";
+import { sendSignerInvitationEmail } from "@/lib/notifications";
 import {
   copyTemplateToEnvelope,
   downloadEnvelopePdf,
   getEnvelopeSignedUrl,
   uploadSignedEnvelopePdf,
 } from "@/lib/envelopes/storage";
-import { generateSignerToken, hashSignerToken } from "@/lib/envelopes/tokens";
+import { deriveSignerToken, hashSignerToken } from "@/lib/envelopes/tokens";
 import type {
   Envelope,
   EnvelopeDocument,
@@ -240,16 +241,15 @@ export async function sendEnvelope(id: string): Promise<SignerLink[]> {
   if (details.signers.length === 0) throw new Error("Envelope needs at least one signer.");
 
   const supabase = createSupabaseAdminClient();
-  const expiresAt = new Date(details.expires_at);
   const links: SignerLink[] = [];
 
   for (const signer of details.signers) {
-    const token = generateSignerToken();
+    const token = deriveSignerToken({ envelopeId: details.id, signerId: signer.id });
     const { error } = await supabase
       .from("envelope_signers")
       .update({
         access_token_hash: hashSignerToken(token),
-        access_token_expires_at: expiresAt.toISOString(),
+        access_token_expires_at: new Date(details.expires_at).toISOString(),
       })
       .eq("id", signer.id);
 
@@ -276,6 +276,11 @@ export async function sendEnvelope(id: string): Promise<SignerLink[]> {
     },
   });
 
+  const refreshed = await getEnvelopeDetails(id);
+  if (refreshed) {
+    await notifyActionableSigners(refreshed);
+  }
+
   return links;
 }
 
@@ -292,6 +297,41 @@ function signerCanAct(details: EnvelopeWithDetails, signer: EnvelopeSigner) {
   return details.signers
     .filter((candidate) => candidate.order_index < signer.order_index)
     .every((candidate) => candidate.status === "signed");
+}
+
+function actionableSigners(details: EnvelopeWithDetails) {
+  return details.signers.filter((signer) => signer.status === "pending" && signerCanAct(details, signer));
+}
+
+async function notifyActionableSigners(details: EnvelopeWithDetails) {
+  const signers = actionableSigners(details);
+  if (signers.length === 0) return;
+
+  const results = await Promise.allSettled(
+    signers.map((signer) =>
+      sendSignerInvitationEmail({
+        signerName: signer.name,
+        signerEmail: signer.user_email,
+        documentName: details.title,
+        signingUrl: `${appBaseUrl()}/sign/${deriveSignerToken({
+          envelopeId: details.id,
+          signerId: signer.id,
+        })}`,
+      }),
+    ),
+  );
+
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      const signer = signers[index];
+      console.error("Failed to send signer invitation email", {
+        envelopeId: details.id,
+        signerId: signer.id,
+        signerEmail: signer.user_email,
+        error: result.reason,
+      });
+    }
+  });
 }
 
 async function getSignerByToken(token: string) {
@@ -545,6 +585,8 @@ export async function signEnvelopeWithToken(params: { token: string; signatureTe
 
   const refreshed = await getEnvelopeDetails(envelope.id);
   if (!refreshed) throw new Error("Envelope disappeared after signing.");
+
+  await notifyActionableSigners(refreshed);
 
   const allSigned = refreshed.signers.every((candidate) => candidate.status === "signed");
   if (allSigned) {
