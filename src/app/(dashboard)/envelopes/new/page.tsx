@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { EnvelopeCreateForm } from "@/components/envelopes/EnvelopeCreateForm";
 import { listTemplates } from "@/lib/templates/db";
+import { requireServerUser } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewEnvelopePage() {
-  const templates = await listTemplates();
+  const user = await requireServerUser();
+  const templates = await listTemplates(user.id);
   const usableTemplates = templates.filter((template) => template.field_layout.length > 0);
 
   return (

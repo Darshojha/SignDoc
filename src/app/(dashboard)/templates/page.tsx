@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { listTemplates } from "@/lib/templates/db";
+import { requireServerUser } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function TemplatesPage() {
-  const templates = await listTemplates();
+  const user = await requireServerUser();
+  const templates = await listTemplates(user.id);
 
   return (
     <div>

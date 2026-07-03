@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   if ("response" in auth) return auth.response;
 
   try {
-    const templates = await listTemplates();
+    const templates = await listTemplates(auth.user.id);
     return NextResponse.json({ templates });
   } catch (err) {
     return internalApiError(err);
@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         storagePath,
         pageCount,
+        ownerId: auth.user.id,
       });
       return NextResponse.json({ template }, { status: 201 });
     } catch (dbErr) {

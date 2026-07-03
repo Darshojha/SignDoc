@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listEnvelopes } from "@/lib/envelopes/workflow";
+import { requireServerUser } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,8 @@ function statusClass(status: string) {
 }
 
 export default async function EnvelopesPage() {
-  const envelopes = await listEnvelopes();
+  const user = await requireServerUser();
+  const envelopes = await listEnvelopes(user.id);
 
   return (
     <div>

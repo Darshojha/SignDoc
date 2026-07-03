@@ -25,7 +25,7 @@ export async function POST(
   }
 
   try {
-    const signer_links = await sendEnvelope(id);
+    const signer_links = await sendEnvelope(id, auth.user.id);
     return NextResponse.json({ signer_links });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";

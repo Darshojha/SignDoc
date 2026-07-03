@@ -111,11 +111,12 @@ async function updateEnvelopeStatus(params: {
   });
 }
 
-export async function listEnvelopes(): Promise<Envelope[]> {
+export async function listEnvelopes(ownerId: string): Promise<Envelope[]> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("envelopes")
     .select(ENVELOPE_SELECT)
+    .eq("created_by", ownerId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -125,10 +126,15 @@ export async function listEnvelopes(): Promise<Envelope[]> {
   return (data as EnvelopeRow[]).map(toEnvelope);
 }
 
-export async function getEnvelopeDetails(id: string): Promise<EnvelopeWithDetails | null> {
+export async function getEnvelopeDetails(
+  id: string,
+  ownerId?: string,
+): Promise<EnvelopeWithDetails | null> {
   const supabase = createSupabaseAdminClient();
+  const envelopeQuery = supabase.from("envelopes").select(ENVELOPE_SELECT).eq("id", id);
+  const scopedEnvelopeQuery = ownerId ? envelopeQuery.eq("created_by", ownerId) : envelopeQuery;
   const [envelopeRes, documentRes, signersRes, eventsRes] = await Promise.all([
-    supabase.from("envelopes").select(ENVELOPE_SELECT).eq("id", id).maybeSingle(),
+    scopedEnvelopeQuery.maybeSingle(),
     supabase.from("envelope_documents").select(DOCUMENT_SELECT).eq("envelope_id", id).maybeSingle(),
     supabase.from("envelope_signers").select(SIGNER_SELECT).eq("envelope_id", id).order("order_index"),
     supabase
@@ -161,8 +167,9 @@ export async function createEnvelopeFromTemplate(params: {
   title: string;
   signingOrder: SigningOrder;
   signers: Array<{ name: string; email: string; assignedRole: string; orderIndex: number }>;
+  ownerId: string;
 }) {
-  const template = await getTemplateById(params.templateId);
+  const template = await getTemplateById(params.templateId, params.ownerId);
   if (!template) throw new Error("Template not found.");
   if (template.field_layout.length === 0) {
     throw new Error("Place at least one field on this template before creating an envelope.");
@@ -187,6 +194,7 @@ export async function createEnvelopeFromTemplate(params: {
     .insert({
       id: envelopeId,
       template_id: template.id,
+      created_by: params.ownerId,
       title: params.title,
       signing_order: params.signingOrder,
     })
@@ -230,11 +238,11 @@ export async function createEnvelopeFromTemplate(params: {
     metadata: { status: "DRAFT" },
   });
 
-  return getEnvelopeDetails(envelopeId);
+  return getEnvelopeDetails(envelopeId, params.ownerId);
 }
 
-export async function sendEnvelope(id: string): Promise<SignerLink[]> {
-  const details = await getEnvelopeDetails(id);
+export async function sendEnvelope(id: string, ownerId: string): Promise<SignerLink[]> {
+  const details = await getEnvelopeDetails(id, ownerId);
   if (!details) throw new Error("Envelope not found.");
   if (details.status !== "DRAFT") throw new Error("Only draft envelopes can be sent.");
   if (!details.document) throw new Error("Envelope has no document.");

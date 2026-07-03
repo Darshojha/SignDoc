@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   if ("response" in auth) return auth.response;
 
   try {
-    const envelopes = await listEnvelopes();
+    const envelopes = await listEnvelopes(auth.user.id);
     return NextResponse.json({ envelopes });
   } catch (err) {
     return internalApiError(err);
@@ -85,9 +85,14 @@ export async function POST(request: NextRequest) {
       title: input.title.trim(),
       signingOrder: input.signing_order as SigningOrder,
       signers,
+      ownerId: auth.user.id,
     });
     return NextResponse.json({ envelope }, { status: 201 });
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.includes("Template not found.")) {
+      return apiError("not_found", "This template does not exist.", null);
+    }
     return apiError("invalid_request", "Unable to create envelope.", null);
   }
 }

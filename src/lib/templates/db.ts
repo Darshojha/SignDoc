@@ -9,6 +9,7 @@ type TemplateRow = {
   storage_path: string;
   page_count: number;
   field_layout: TemplateField[];
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -24,11 +25,12 @@ function toTemplate(row: TemplateRow): Template {
   };
 }
 
-export async function listTemplates(): Promise<Template[]> {
+export async function listTemplates(ownerId: string): Promise<Template[]> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("templates")
     .select("id, name, storage_path, page_count, field_layout, created_at, updated_at")
+    .eq("created_by", ownerId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -43,12 +45,14 @@ export async function insertTemplate(params: {
   name: string;
   storagePath: string;
   pageCount: number;
+  ownerId: string;
 }): Promise<Template> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("templates")
     .insert({
       id: params.id,
+      created_by: params.ownerId,
       name: params.name,
       storage_path: params.storagePath,
       page_count: params.pageCount,
@@ -66,12 +70,14 @@ export async function insertTemplate(params: {
 
 export async function getTemplateById(
   id: string,
+  ownerId: string,
 ): Promise<(Template & { storage_path: string }) | null> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("templates")
     .select("id, name, storage_path, page_count, field_layout, created_at, updated_at")
     .eq("id", id)
+    .eq("created_by", ownerId)
     .maybeSingle();
 
   if (error) {
@@ -86,12 +92,14 @@ export async function getTemplateById(
 export async function updateTemplateFields(
   id: string,
   fieldLayout: TemplateField[],
+  ownerId: string,
 ): Promise<Template | null> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("templates")
     .update({ field_layout: fieldLayout, updated_at: new Date().toISOString() })
     .eq("id", id)
+    .eq("created_by", ownerId)
     .select("id, name, storage_path, page_count, field_layout, created_at, updated_at")
     .maybeSingle();
 

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireServerUser } from "@/lib/auth/server";
 import { getTemplateById } from "@/lib/templates/db";
 import { getTemplateSignedUrl } from "@/lib/templates/storage";
 import { FieldPlacementEditor } from "@/components/templates/FieldPlacementEditor";
@@ -11,7 +12,8 @@ export default async function EditTemplatePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const template = await getTemplateById(id);
+  const user = await requireServerUser();
+  const template = await getTemplateById(id, user.id);
 
   if (!template) {
     notFound();

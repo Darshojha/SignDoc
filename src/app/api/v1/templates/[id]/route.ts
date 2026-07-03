@@ -19,7 +19,7 @@ export async function GET(
   }
 
   try {
-    const template = await getTemplateById(id);
+    const template = await getTemplateById(id, auth.user.id);
     if (!template) {
       return apiError("not_found", "This template does not exist.", null);
     }
@@ -70,7 +70,7 @@ export async function PATCH(
   }
 
   try {
-    const template = await updateTemplateFields(id, fieldLayout as TemplateField[]);
+    const template = await updateTemplateFields(id, fieldLayout as TemplateField[], auth.user.id);
     if (!template) {
       return apiError("not_found", "This template does not exist.", null);
     }

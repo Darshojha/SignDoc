@@ -17,7 +17,7 @@ export async function GET(
   }
 
   try {
-    const envelope = await getEnvelopeDetails(id);
+    const envelope = await getEnvelopeDetails(id, auth.user.id);
     if (!envelope) return apiError("not_found", "This envelope does not exist.", null);
     return NextResponse.json({ envelope });
   } catch (err) {

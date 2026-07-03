@@ -57,3 +57,17 @@ export async function getAuthenticatedUser(request: NextRequest): Promise<User |
 
   return data.user;
 }
+
+export async function getAuthenticatedUserFromCookies(): Promise<User | null> {
+  const token = (await cookies()).get(AUTH_SESSION_COOKIE)?.value;
+  if (!token) return null;
+
+  const supabase = createSupabaseAnonClient();
+  const { data, error } = await supabase.auth.getUser(token);
+
+  if (error || !data.user) {
+    return null;
+  }
+
+  return data.user;
+}

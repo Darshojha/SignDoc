@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireServerUser } from "@/lib/auth/server";
 import { SendEnvelopeButton } from "@/components/envelopes/SendEnvelopeButton";
 import { getEnvelopeDetails } from "@/lib/envelopes/workflow";
 
@@ -17,7 +18,8 @@ export default async function EnvelopeDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const envelope = await getEnvelopeDetails(id);
+  const user = await requireServerUser();
+  const envelope = await getEnvelopeDetails(id, user.id);
   if (!envelope) notFound();
 
   return (
