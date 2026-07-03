@@ -1,10 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { PDFDocument } from "pdf-lib";
 import { apiError } from "@/lib/api/errors";
+import { requireApiUser } from "@/lib/auth/route";
 import { insertTemplate, listTemplates } from "@/lib/templates/db";
 import { deleteTemplateSource, uploadTemplateSource, MAX_TEMPLATE_FILE_BYTES } from "@/lib/templates/storage";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireApiUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const templates = await listTemplates();
     return NextResponse.json({ templates });
@@ -14,6 +18,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser(request);
+  if ("response" in auth) return auth.response;
+
   let formData: FormData;
   try {
     formData = await request.formData();

@@ -1,11 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiError } from "@/lib/api/errors";
+import { requireApiUser } from "@/lib/auth/route";
 import { createEnvelopeFromTemplate, listEnvelopes } from "@/lib/envelopes/workflow";
 import type { SigningOrder } from "@/lib/envelopes/types";
 
 const MIN_SIGNERS = 1;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireApiUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const envelopes = await listEnvelopes();
     return NextResponse.json({ envelopes });
@@ -15,6 +19,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiUser(request);
+  if ("response" in auth) return auth.response;
+
   let body: unknown;
   try {
     body = await request.json();
