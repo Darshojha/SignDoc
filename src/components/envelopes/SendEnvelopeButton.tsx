@@ -3,6 +3,26 @@
 import { useState } from "react";
 import type { SignerLink } from "@/lib/envelopes/types";
 
+function CopyLinkButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="mt-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] px-3 py-1 text-xs font-medium text-[var(--color-text-primary)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+    >
+      {copied ? "Copied" : "Copy signing link"}
+    </button>
+  );
+}
+
 export function SendEnvelopeButton({
   envelopeId,
   disabled,
@@ -59,6 +79,7 @@ export function SendEnvelopeButton({
                 >
                   {link.url}
                 </a>
+                <CopyLinkButton url={link.url} />
               </div>
             ))}
           </div>
