@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { SignerEnvelopeContext } from "@/lib/envelopes/types";
+import type { EnvelopeWithDetails, SignerEnvelopeContext } from "@/lib/envelopes/types";
 
 function statusClass(status: string) {
   if (status === "signed" || status === "COMPLETED") return "bg-emerald-50 text-[var(--color-success)]";
@@ -18,15 +18,19 @@ export function SignerEnvelopeView({
   context: SignerEnvelopeContext;
 }) {
   const [signatureText, setSignatureText] = useState(context.signer.signature_text ?? context.signer.name);
+  const [envelope, setEnvelope] = useState<EnvelopeWithDetails>(context.envelope);
+  const [signer, setSigner] = useState(context.signer);
+  const [canSign, setCanSign] = useState(context.canSign);
   const [status, setStatus] = useState<"idle" | "submitting" | "signed" | "error">(
     context.signer.status === "signed" ? "signed" : "idle",
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [completedEnvelopeTitle, setCompletedEnvelopeTitle] = useState<string | null>(null);
 
-  const signed = status === "signed";
-  const waiting = !context.canSign && context.signer.status === "pending";
-  const displayStatus = signed ? "signed" : context.signer.status;
+  const signed = status === "signed" || signer.status === "signed";
+  const waiting = !canSign && signer.status === "pending";
+  const displayStatus = signed ? "signed" : signer.status;
+  const currentCanSign = canSign;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,7 +48,15 @@ export function SignerEnvelopeView({
         throw new Error(data?.error?.message ?? "Could not complete signing.");
       }
 
-      setCompletedEnvelopeTitle(data?.envelope?.title ?? context.envelope.title);
+      if (data?.envelope) {
+        setEnvelope(data.envelope);
+        const refreshedSigner = data.envelope.signers.find((candidate: typeof signer) => candidate.id === signer.id);
+        if (refreshedSigner) {
+          setSigner(refreshedSigner);
+        }
+        setCanSign(false);
+      }
+      setCompletedEnvelopeTitle(data?.envelope?.title ?? envelope.title);
       setStatus("signed");
     } catch (err) {
       setStatus("error");
@@ -59,10 +71,10 @@ export function SignerEnvelopeView({
           <div>
             <p className="text-sm font-medium text-[var(--color-primary)]">Signer view</p>
             <h1 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
-              {context.envelope.title}
+              {envelope.title}
             </h1>
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-              {context.signer.name} · {context.signer.assigned_role}
+              {signer.name} · {signer.assigned_role}
             </p>
           </div>
           <span className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${statusClass(displayStatus)}`}>
@@ -103,11 +115,11 @@ export function SignerEnvelopeView({
               Enter the signature text you want applied to the document.
             </p>
 
-            {context.signer.status === "signed" ? (
+            {signer.status === "signed" ? (
               <p className="mt-4 rounded-[var(--radius-md)] bg-emerald-50 px-3 py-2 text-sm text-[var(--color-success)]">
                 This signer already completed the envelope.
               </p>
-            ) : context.canSign ? (
+            ) : currentCanSign ? (
               <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
                   <label htmlFor="signature_text" className="text-sm font-medium text-[var(--color-text-primary)]">
@@ -151,19 +163,19 @@ export function SignerEnvelopeView({
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-[var(--color-text-secondary)]">Envelope</dt>
                   <dd className="text-right font-medium text-[var(--color-text-primary)]">
-                    {context.envelope.status}
+                    {envelope.status}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-[var(--color-text-secondary)]">Signing order</dt>
                   <dd className="text-right font-medium text-[var(--color-text-primary)]">
-                    {context.envelope.signing_order}
+                    {envelope.signing_order}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-[var(--color-text-secondary)]">Expires</dt>
                   <dd className="text-right font-medium text-[var(--color-text-primary)]">
-                    {new Date(context.envelope.expires_at).toLocaleDateString("en-US")}
+                    {new Date(envelope.expires_at).toLocaleDateString("en-US")}
                   </dd>
                 </div>
               </dl>

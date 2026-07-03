@@ -40,3 +40,10 @@
 **Files touched:** `PROGRESS.md`.
 **Broken / blocked:** The signer page shows a success message after signing, but the in-page envelope status text can remain stale until a refresh because the client view does not re-read the updated envelope after submission. Backend state is correct.
 **Next step:** Commit and push the current branch to `master`.
+
+### 2026-07-03 (cont.) â€” Agent: Codex
+**Goal this session:** Fix the stale signer status UI after submission.
+**Done:** Updated `SignerEnvelopeView` to keep the current envelope and signer in local state and hydrate that state from the signed envelope response returned by `POST /api/v1/signing/[token]`. Verified with a fresh envelope that the browser view flips to `signed` after the request completes and shows the signed success message without needing a manual refresh. Confirmed the backend still moves from `SENT` to `PARTIALLY_SIGNED` after the first signer and the page reflects that state after submit.
+**Files touched:** `src/components/signing/SignerEnvelopeView.tsx`, `PROGRESS.md`.
+**Broken / blocked:** The document status panel on the signer page still shows the correct envelope state from the refreshed response, but it only settles after the sign request completes; no backend issue remains.
+**Next step:** Commit and push this fix, then start the notifications item.
