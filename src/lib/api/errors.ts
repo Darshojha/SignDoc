@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 export type ApiErrorCode =
   | "invalid_request"
+  | "rate_limited"
   | "unauthorized"
   | "forbidden"
   | "envelope_not_signable"
@@ -12,6 +13,7 @@ export type ApiErrorCode =
 
 const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   invalid_request: 400,
+  rate_limited: 429,
   unauthorized: 401,
   forbidden: 403,
   envelope_not_signable: 409,

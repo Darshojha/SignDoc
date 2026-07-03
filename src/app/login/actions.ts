@@ -1,15 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import {
   createSupabaseAdminClient,
   createSupabaseAnonClient,
 } from "@/lib/supabase/server";
 import { setAuthSession } from "@/lib/auth/session";
+import { consumeRateLimit, getClientIp } from "@/lib/rate-limit";
 
 type AuthState = {
   error?: string;
 };
+
+const LOGIN_RATE_LIMIT = { limit: 5, windowMs: 60_000 };
+const SIGNUP_RATE_LIMIT = { limit: 5, windowMs: 60_000 };
 
 function readSignInCredentials(formData: FormData) {
   const email = formData.get("email");
@@ -51,10 +56,21 @@ async function finishLogin(email: string, password: string) {
   redirect("/envelopes");
 }
 
+async function enforceRateLimit(scope: string, config: { limit: number; windowMs: number }) {
+  const headerList = await headers();
+  const ip = getClientIp(headerList);
+  return consumeRateLimit(`auth:${scope}:${ip}`, config);
+}
+
 export async function signIn(
   _state: AuthState | undefined,
   formData: FormData,
 ): Promise<AuthState> {
+  const rateLimit = await enforceRateLimit("login", LOGIN_RATE_LIMIT);
+  if (!rateLimit.allowed) {
+    return { error: "Too many attempts. Try again later." };
+  }
+
   const credentials = readSignInCredentials(formData);
   if ("error" in credentials) return credentials;
 
@@ -65,6 +81,11 @@ export async function signUp(
   _state: AuthState | undefined,
   formData: FormData,
 ): Promise<AuthState> {
+  const rateLimit = await enforceRateLimit("signup", SIGNUP_RATE_LIMIT);
+  if (!rateLimit.allowed) {
+    return { error: "Too many attempts. Try again later." };
+  }
+
   const credentials = readSignUpCredentials(formData);
   if ("error" in credentials) return credentials;
 
