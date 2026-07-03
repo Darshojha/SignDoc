@@ -3,6 +3,8 @@ import { apiError } from "@/lib/api/errors";
 import { createEnvelopeFromTemplate, listEnvelopes } from "@/lib/envelopes/workflow";
 import type { SigningOrder } from "@/lib/envelopes/types";
 
+const MIN_SIGNERS = 1;
+
 export async function GET() {
   try {
     const envelopes = await listEnvelopes();
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (input.signing_order !== "sequential" && input.signing_order !== "parallel") {
     return apiError("invalid_request", "Signing order must be sequential or parallel.", "signing_order");
   }
-  if (!Array.isArray(input.signers) || input.signers.length === 0) {
+  if (!Array.isArray(input.signers) || input.signers.length < MIN_SIGNERS) {
     return apiError("invalid_request", "At least one signer is required.", "signers");
   }
 

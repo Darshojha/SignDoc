@@ -11,6 +11,8 @@ type SignerInput = {
   order_index: number;
 };
 
+const MIN_SIGNERS = 1;
+
 function rolesForTemplate(template: Template | undefined) {
   if (!template) return [];
   return Array.from(new Set(template.field_layout.map((field) => field.assigned_role))).filter(Boolean);
@@ -197,7 +199,7 @@ export function EnvelopeCreateForm({ templates }: { templates: Template[] }) {
 
       <button
         type="submit"
-        disabled={status === "saving" || roles.length === 0}
+      disabled={status === "saving" || roles.length < MIN_SIGNERS}
         className="w-fit rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {status === "saving" ? "Creating..." : "Create envelope"}
