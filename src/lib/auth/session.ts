@@ -71,3 +71,7 @@ export async function getAuthenticatedUserFromCookies(): Promise<User | null> {
 
   return data.user;
 }
+
+export async function getAuthTokenFromCookies(): Promise<string | null> {
+  return (await cookies()).get(AUTH_SESSION_COOKIE)?.value ?? null;
+}

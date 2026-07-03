@@ -1,8 +1,11 @@
 import { AuthForms } from "./AuthForms";
+import { getAuthTokenFromCookies } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const currentAccessToken = await getAuthTokenFromCookies();
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#FAFAF9_0%,#F5F5F4_100%)] px-6 py-12">
       <section className="w-full max-w-4xl">
@@ -18,7 +21,7 @@ export default function LoginPage() {
             Create a test account or sign in with an existing one to continue.
           </p>
         </div>
-        <AuthForms />
+        <AuthForms initialAccessToken={currentAccessToken ?? undefined} />
       </section>
     </main>
   );

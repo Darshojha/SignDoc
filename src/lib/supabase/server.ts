@@ -26,3 +26,20 @@ export function createSupabaseAdminClient() {
     },
   );
 }
+
+export function createSupabaseAnonClientWithToken(accessToken: string) {
+  return createClient(
+    requireServerEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    requireServerEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+      auth: {
+        persistSession: false,
+      },
+    },
+  );
+}
