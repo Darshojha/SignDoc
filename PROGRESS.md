@@ -43,3 +43,16 @@
 ### 2026-07-03 - Owner access verified
 **Done:** Scoped envelope/template reads and writes to the authenticated owner, added a backfill migration for existing `created_by` rows, and wired the dashboard/API routes to pass the logged-in user id through. Browser verification with two accounts (`darsh.ojha@xtransmatrix.com` and `owner-b-1783096429@xtransmatrix.com`) showed owner filtering working: A saw only A-owned rows, B saw only B-owned rows, and direct cross-user access returned `404` for both `/envelopes/[id]`, `/templates/[id]/edit`, and the matching `/api/v1/*/[id]` routes. Code commit: `83b0aa4`.
 **Done:** `cmd /c npm run build` passed and `git push origin main` succeeded for the code commit.
+
+### 2026-07-04 - Password reset partial
+**Done:** Added the login-page forgot-password UI, Supabase password-reset server action, and the recovery-mode password update form. The flow uses the current authenticated session token fallback so the recovery page can complete a password change once a recovery session exists. Code commit: `66aa58f`.
+**Blocked:** Browser verification of the actual reset email send is currently blocked by Supabase returning `email rate limit exceeded` even for a fresh test account. I confirmed the UI submission path in-browser and recorded the actual provider error, but I could not verify a delivered recovery email or opened magic link in this environment.
+
+### 2026-07-04 - Signing link copy verified
+**Done:** Added the per-signer copy-link fallback on the envelope detail send result card. In-browser verification used the real send response payload and clipboard APIs: the returned URL was `http://localhost:3000/sign/uQqoICRwXhfu92PmM8jleysMmpNl4VnOrUimNs_lfoM`, and the browser clipboard contained the exact same string. Code commit: `657bb42`.
+
+### 2026-07-04 - Loading states verified
+**Done:** Added `loading.tsx` fallbacks for envelopes, templates, envelope detail, template edit, and sign pages, plus a shared spinner component. Browser checks against the new `aria-label="Loading"` spinner found the fallback on `/envelopes`, `/templates`, `/envelopes/[id]`, `/templates/[id]/edit`, and `/sign/[token]`. Code commit: `7e967ab`.
+
+### 2026-07-04 - Empty states verified
+**Done:** Updated the list empty states to the requested copy: `No envelopes yet - create your first one` and `No templates yet - create your first one`. A brand-new account with zero data saw those exact empty states on `/envelopes` and `/templates`. Code commit: `4f091ec`.
