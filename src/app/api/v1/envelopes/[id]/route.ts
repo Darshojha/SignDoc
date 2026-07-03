@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { apiError } from "@/lib/api/errors";
+import { apiError, internalApiError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/route";
 import { getEnvelopeDetails } from "@/lib/envelopes/workflow";
+import { isUuid } from "@/lib/validation";
 
 export async function GET(
   request: NextRequest,
@@ -11,12 +12,15 @@ export async function GET(
   if ("response" in auth) return auth.response;
 
   const { id } = await params;
+  if (!isUuid(id)) {
+    return apiError("invalid_request", "Invalid envelope id.", "id");
+  }
 
   try {
     const envelope = await getEnvelopeDetails(id);
     if (!envelope) return apiError("not_found", "This envelope does not exist.", null);
     return NextResponse.json({ envelope });
   } catch (err) {
-    return apiError("internal_error", (err as Error).message);
+    return internalApiError(err);
   }
 }

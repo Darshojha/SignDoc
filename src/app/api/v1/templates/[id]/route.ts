@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { apiError } from "@/lib/api/errors";
+import { apiError, internalApiError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/route";
 import { getTemplateById, updateTemplateFields } from "@/lib/templates/db";
 import { getTemplateSignedUrl } from "@/lib/templates/storage";
 import { isTemplateField, type TemplateField } from "@/lib/templates/types";
+import { isUuid } from "@/lib/validation";
 
 export async function GET(
   request: NextRequest,
@@ -13,6 +14,9 @@ export async function GET(
   if ("response" in auth) return auth.response;
 
   const { id } = await params;
+  if (!isUuid(id)) {
+    return apiError("invalid_request", "Invalid template id.", "id");
+  }
 
   try {
     const template = await getTemplateById(id);
@@ -33,7 +37,7 @@ export async function GET(
       },
     });
   } catch (err) {
-    return apiError("internal_error", (err as Error).message);
+    return internalApiError(err);
   }
 }
 
@@ -45,6 +49,9 @@ export async function PATCH(
   if ("response" in auth) return auth.response;
 
   const { id } = await params;
+  if (!isUuid(id)) {
+    return apiError("invalid_request", "Invalid template id.", "id");
+  }
 
   let body: unknown;
   try {
@@ -69,6 +76,6 @@ export async function PATCH(
     }
     return NextResponse.json({ template });
   } catch (err) {
-    return apiError("internal_error", (err as Error).message);
+    return internalApiError(err);
   }
 }

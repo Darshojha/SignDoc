@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { signIn, signUp } from "./actions";
 
 function AuthForm({
@@ -15,6 +15,7 @@ function AuthForm({
   heading: string;
 }) {
   const [state, formAction, pending] = useActionState(action, undefined);
+  const [email, setEmail] = useState("");
 
   return (
     <form
@@ -37,6 +38,8 @@ function AuthForm({
             name="email"
             type="email"
             autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
             className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none transition focus:border-[var(--color-primary)]"
           />
         </label>
@@ -54,7 +57,7 @@ function AuthForm({
         </label>
 
         {state?.error ? (
-          <p className="text-sm text-[var(--color-danger)]">{state.error}</p>
+          <p className="mt-2 text-sm text-[var(--color-danger)]">{state.error}</p>
         ) : null}
 
         <button

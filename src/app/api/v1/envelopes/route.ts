@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { apiError } from "@/lib/api/errors";
+import { apiError, internalApiError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/route";
 import { createEnvelopeFromTemplate, listEnvelopes } from "@/lib/envelopes/workflow";
 import type { SigningOrder } from "@/lib/envelopes/types";
+import { isUuid } from "@/lib/validation";
 
 const MIN_SIGNERS = 1;
 
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
     const envelopes = await listEnvelopes();
     return NextResponse.json({ envelopes });
   } catch (err) {
-    return apiError("internal_error", (err as Error).message);
+    return internalApiError(err);
   }
 }
 
@@ -38,6 +39,9 @@ export async function POST(request: NextRequest) {
 
   if (typeof input.template_id !== "string") {
     return apiError("invalid_request", "A template is required.", "template_id");
+  }
+  if (!isUuid(input.template_id)) {
+    return apiError("invalid_request", "A valid template is required.", "template_id");
   }
   if (typeof input.title !== "string" || input.title.trim().length === 0) {
     return apiError("invalid_request", "An envelope title is required.", "title");
@@ -83,7 +87,7 @@ export async function POST(request: NextRequest) {
       signers,
     });
     return NextResponse.json({ envelope }, { status: 201 });
-  } catch (err) {
-    return apiError("invalid_request", (err as Error).message, null);
+  } catch {
+    return apiError("invalid_request", "Unable to create envelope.", null);
   }
 }

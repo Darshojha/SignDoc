@@ -11,21 +11,32 @@ type AuthState = {
   error?: string;
 };
 
-function readCredentials(formData: FormData) {
+function readSignInCredentials(formData: FormData) {
   const email = formData.get("email");
   const password = formData.get("password");
 
   if (typeof email !== "string" || email.trim().length === 0) {
     return { error: "Enter an email address." } as const;
   }
-  if (typeof password !== "string" || password.trim().length < 8) {
-    return { error: "Enter a password with at least 8 characters." } as const;
+  if (typeof password !== "string" || password.trim().length === 0) {
+    return { error: "Enter a password." } as const;
   }
 
   return {
     email: email.trim().toLowerCase(),
     password,
   } as const;
+}
+
+function readSignUpCredentials(formData: FormData) {
+  const credentials = readSignInCredentials(formData);
+  if ("error" in credentials) return credentials;
+
+  if (credentials.password.length < 6) {
+    return { error: "Password must be at least 6 characters." } as const;
+  }
+
+  return credentials;
 }
 
 async function finishLogin(email: string, password: string) {
@@ -44,7 +55,7 @@ export async function signIn(
   _state: AuthState | undefined,
   formData: FormData,
 ): Promise<AuthState> {
-  const credentials = readCredentials(formData);
+  const credentials = readSignInCredentials(formData);
   if ("error" in credentials) return credentials;
 
   return finishLogin(credentials.email, credentials.password);
@@ -54,7 +65,7 @@ export async function signUp(
   _state: AuthState | undefined,
   formData: FormData,
 ): Promise<AuthState> {
-  const credentials = readCredentials(formData);
+  const credentials = readSignUpCredentials(formData);
   if ("error" in credentials) return credentials;
 
   const supabase = createSupabaseAdminClient();
@@ -65,7 +76,7 @@ export async function signUp(
   });
 
   if (error && !error.message.toLowerCase().includes("already registered")) {
-    return { error: error.message };
+    return { error: "Unable to create your account." };
   }
 
   return finishLogin(credentials.email, credentials.password);

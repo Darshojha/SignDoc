@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { PDFDocument } from "pdf-lib";
-import { apiError } from "@/lib/api/errors";
+import { apiError, internalApiError } from "@/lib/api/errors";
 import { requireApiUser } from "@/lib/auth/route";
 import { insertTemplate, listTemplates } from "@/lib/templates/db";
 import { deleteTemplateSource, uploadTemplateSource, MAX_TEMPLATE_FILE_BYTES } from "@/lib/templates/storage";
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const templates = await listTemplates();
     return NextResponse.json({ templates });
   } catch (err) {
-    return apiError("internal_error", (err as Error).message);
+    return internalApiError(err);
   }
 }
 
@@ -75,6 +75,6 @@ export async function POST(request: NextRequest) {
       throw dbErr;
     }
   } catch (err) {
-    return apiError("internal_error", (err as Error).message);
+    return internalApiError(err);
   }
 }

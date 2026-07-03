@@ -31,3 +31,16 @@ export function apiError(
     { status: STATUS_BY_CODE[code] },
   );
 }
+
+export function internalApiError(err: unknown, fallbackMessage = "An unexpected error occurred.") {
+  if (err instanceof Error) {
+    console.error(fallbackMessage, {
+      message: err.message,
+      stack: err.stack,
+    });
+  } else {
+    console.error(fallbackMessage, err);
+  }
+
+  return apiError("internal_error", fallbackMessage, null);
+}
