@@ -8,11 +8,12 @@ const PREVIEW_WIDTH = 900;
 const PREVIEW_HEIGHT = 320;
 
 type TypeSignatureComposerProps = {
+  defaultName?: string;
   onConfirm?: (imageDataUrl: string) => Promise<void> | void;
 };
 
-export function TypeSignatureComposer({ onConfirm }: TypeSignatureComposerProps) {
-  const [name, setName] = useState('Alex Morgan');
+export function TypeSignatureComposer({ defaultName = "Alex Morgan", onConfirm }: TypeSignatureComposerProps) {
+  const [name, setName] = useState(defaultName);
   const [pngDataUrl, setPngDataUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 

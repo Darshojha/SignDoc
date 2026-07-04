@@ -7,7 +7,22 @@ import { GlassCard } from '@/components/ui/glass/GlassCard';
 const MAX_SIZE_BYTES = 2 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
 
-export function UploadSignatureComposer() {
+type UploadSignatureComposerProps = {
+  onConfirm?: (imageDataUrl: string) => Promise<void> | void;
+};
+
+async function blobUrlToDataUrl(blobUrl: string): Promise<string> {
+  const response = await fetch(blobUrl);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+export function UploadSignatureComposer({ onConfirm }: UploadSignatureComposerProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +63,10 @@ export function UploadSignatureComposer() {
       return;
     }
 
-    setConfirmedImageUrl(previewUrl);
+    const dataUrl = await blobUrlToDataUrl(previewUrl);
+    setConfirmedImageUrl(dataUrl);
     if (onConfirm) {
-      await onConfirm(previewUrl);
+      await onConfirm(dataUrl);
     }
   };
 

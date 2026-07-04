@@ -10,7 +10,9 @@ type SignatureMethod = 'typed' | 'drawn' | 'uploaded';
 type SignatureCaptureModalProps = {
   open: boolean;
   fieldType: 'signature' | 'initials';
+  defaultName?: string;
   loading?: boolean;
+  errorMessage?: string | null;
   onClose: () => void;
   onConfirm: (payload: {
     imageDataUrl: string;
@@ -28,7 +30,9 @@ const tabs: Array<{ id: SignatureMethod; label: string }> = [
 export function SignatureCaptureModal({
   open,
   fieldType,
+  defaultName,
   loading = false,
+  errorMessage = null,
   onClose,
   onConfirm,
 }: SignatureCaptureModalProps) {
@@ -87,7 +91,7 @@ export function SignatureCaptureModal({
 
         <div className="mt-5">
           {activeTab === 'typed' ? (
-            <TypeSignatureComposer onConfirm={handleConfirm} />
+            <TypeSignatureComposer defaultName={defaultName} onConfirm={handleConfirm} />
           ) : null}
           {activeTab === 'drawn' ? (
             <DrawSignatureComposer onConfirm={handleConfirm} />
@@ -99,6 +103,11 @@ export function SignatureCaptureModal({
 
         {loading ? (
           <p className="mt-4 text-sm text-[var(--theme-text-secondary)]">Saving signature image…</p>
+        ) : null}
+        {errorMessage ? (
+          <p className="mt-4 rounded-[var(--radius-md)] bg-red-50/80 px-3 py-2 text-sm text-[var(--color-danger)]">
+            {errorMessage}
+          </p>
         ) : null}
       </div>
     </div>
