@@ -35,11 +35,11 @@ returns uuid
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
   select id
   from envelope_signers
-  where access_token_hash = encode(digest(p_token, 'sha256'), 'hex')
+  where access_token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex')
     and access_token_expires_at > now()
     and status in ('pending', 'viewed')
   limit 1;
