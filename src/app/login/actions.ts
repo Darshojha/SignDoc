@@ -60,6 +60,13 @@ async function finishLogin(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error || !data.session) {
+    const code = (error as { code?: string } | undefined)?.code;
+    if (code === "email_not_confirmed") {
+      return { error: "Please confirm your email before signing in." } as AuthState;
+    }
+    if (code === "too_many_requests") {
+      return { error: "Too many sign-in attempts. Try again later." } as AuthState;
+    }
     return { error: "Invalid email or password." } as AuthState;
   }
 
