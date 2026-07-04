@@ -21,10 +21,8 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(funct
   return (
     <button
       ref={ref}
-      className={`${baseClasses} ${interactiveClasses} ${className}`}
+      className={`${baseClasses} ${interactiveClasses} ${className} glass-panel`}
       style={{
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.35)',
       }}
       {...props}

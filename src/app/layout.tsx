@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { PageTransition } from "@/components/ui/PageTransition";
 import { SignDocLogo } from "@/components/ui/SignDocLogo";
 
 export const metadata: Metadata = {
@@ -21,7 +20,7 @@ export default function RootLayout({
           <SignDocLogo className="h-7 w-7" />
           <span className="text-sm font-medium text-[color:var(--theme-text-primary)]">SignDoc</span>
         </div>
-        <PageTransition>{children}</PageTransition>
+        {children}
         <ThemeToggle />
       </body>
     </html>

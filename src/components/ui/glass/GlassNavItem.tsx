@@ -11,10 +11,8 @@ export const GlassNavItem = forwardRef<HTMLAnchorElement, GlassNavItemProps>(fun
   return (
     <a
       ref={ref}
-      className={`group relative inline-flex items-center rounded-[10px] border border-white/20 px-3 py-2 text-sm font-medium text-[color:var(--theme-text-primary)] transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/30 dark:hover:bg-white/10 ${active ? 'bg-[color:var(--theme-surface)]' : 'bg-transparent'} ${className}`}
+      className={`group relative inline-flex items-center rounded-[10px] border border-white/20 px-3 py-2 text-sm font-medium text-[color:var(--theme-text-primary)] transition-all duration-200 ease-out hover:scale-[1.02] hover:bg-white/30 dark:hover:bg-white/10 ${active ? 'bg-[color:var(--theme-surface)]' : 'bg-transparent'} ${className} glass-panel`}
       style={{
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
         boxShadow: active ? 'inset 0 1px 0 rgba(255,255,255,0.35)' : 'none',
       }}
       {...props}

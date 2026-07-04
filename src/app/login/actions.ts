@@ -108,14 +108,12 @@ export async function signUp(
   });
 
   if (error) {
-    console.error("SIGNUP_ERROR:", error);
     if (error.message.toLowerCase().includes("already registered")) {
       return { error: "An account with this email already exists. Please log in." };
     }
     return { error: `Unable to create your account: ${error.message}` };
   }
 
-  console.log("SIGNUP_SUCCESS:", { userId: data.user?.id, email: data.user?.email });
   return finishLogin(credentials.email, credentials.password);
 }
 

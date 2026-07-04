@@ -15,11 +15,7 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(function Gla
   return (
     <div
       ref={ref}
-      className={`rounded-[12px] border border-white/20 bg-[color:var(--theme-surface)] p-4 text-[color:var(--theme-text-primary)] shadow-[var(--theme-shadow-card)] ${interactiveClasses} ${className}`}
-      style={{
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-      }}
+      className={`rounded-[12px] border border-white/20 bg-[color:var(--theme-surface)] p-4 text-[color:var(--theme-text-primary)] shadow-[var(--theme-shadow-card)] ${interactiveClasses} ${className} glass-panel`}
       {...props}
     >
       {children}
