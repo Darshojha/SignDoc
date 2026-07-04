@@ -8,6 +8,11 @@ import { createSupabaseAnonClient } from "@/lib/supabase/server";
 export const AUTH_SESSION_COOKIE = "docsign-auth-token";
 
 function isProduction() {
+  // Treat non-localhost URLs as production-like so secure cookies work on HTTPS previews
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl && !appUrl.includes("localhost")) {
+    return true;
+  }
   return process.env.NODE_ENV === "production";
 }
 
