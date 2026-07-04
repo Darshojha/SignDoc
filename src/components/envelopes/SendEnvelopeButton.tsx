@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { SignerLink } from "@/lib/envelopes/types";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { GlassCard } from "@/components/ui/glass/GlassCard";
 
 function CopyLinkButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
@@ -13,13 +15,14 @@ function CopyLinkButton({ url }: { url: string }) {
   }
 
   return (
-    <button
+    <GlassButton
       type="button"
       onClick={handleCopy}
-      className="mt-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] px-3 py-1 text-xs font-medium text-[var(--color-text-primary)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+      variant="ghost"
+      className="mt-2 px-3 py-1 text-xs"
     >
       {copied ? "Copied" : "Copy signing link"}
-    </button>
+    </GlassButton>
   );
 }
 
@@ -51,17 +54,17 @@ export function SendEnvelopeButton({
 
   return (
     <div className="flex flex-col items-end gap-3">
-      <button
+      <GlassButton
         type="button"
         onClick={handleSend}
         disabled={disabled || status === "sending" || status === "sent"}
-        className="rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+        className="px-4 py-2"
       >
         {status === "sending" ? "Sending..." : status === "sent" ? "Sent" : "Send envelope"}
-      </button>
+      </GlassButton>
       {errorMessage && <p className="text-sm text-[var(--color-danger)]">{errorMessage}</p>}
       {links.length > 0 && (
-        <div className="w-full max-w-xl rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white p-4 text-left shadow-[var(--shadow-card)]">
+        <GlassCard className="w-full max-w-xl p-4 text-left">
           <p className="text-sm font-semibold text-[var(--color-text-primary)]">
             Magic links for testing
           </p>
@@ -83,7 +86,7 @@ export function SendEnvelopeButton({
               </div>
             ))}
           </div>
-        </div>
+        </GlassCard>
       )}
     </div>
   );

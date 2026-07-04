@@ -2,6 +2,8 @@ import Link from "next/link";
 import { EnvelopeCreateForm } from "@/components/envelopes/EnvelopeCreateForm";
 import { listTemplates } from "@/lib/templates/db";
 import { requireServerUser } from "@/lib/auth/server";
+import { GlassCard } from "@/components/ui/glass/GlassCard";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 export const dynamic = "force-dynamic";
 
@@ -20,20 +22,17 @@ export default async function NewEnvelopePage() {
       </p>
 
       {usableTemplates.length === 0 ? (
-        <div className="mt-6 rounded-[var(--radius-lg)] border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-[var(--shadow-card)]">
+        <GlassCard className="mt-6 border-dashed p-8">
           <p className="font-medium text-[var(--color-text-primary)]">
             No fielded templates available
           </p>
           <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
             Upload a PDF and place at least one signer field before creating an envelope.
           </p>
-          <Link
-            href="/templates/new"
-            className="mt-4 inline-block rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-primary-hover)]"
-          >
-            Upload a template
+          <Link href="/templates/new" className="mt-4 inline-flex">
+            <GlassButton>Upload a template</GlassButton>
           </Link>
-        </div>
+        </GlassCard>
       ) : (
         <EnvelopeCreateForm templates={usableTemplates} />
       )}

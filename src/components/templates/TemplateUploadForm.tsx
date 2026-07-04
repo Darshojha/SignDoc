@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { GlassCard } from "@/components/ui/glass/GlassCard";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -65,10 +67,9 @@ export function TemplateUploadForm() {
   const isUploading = status === "uploading";
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mt-6 flex flex-col gap-5 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-card)]"
-    >
+    <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
+      <GlassCard className="flex flex-col gap-5 p-6">
+
       <div className="flex flex-col gap-2">
         <label htmlFor="template-name" className="text-sm font-medium text-[var(--color-text-primary)]">
           Template name
@@ -105,13 +106,14 @@ export function TemplateUploadForm() {
         </p>
       )}
 
-      <button
+      <GlassButton
         type="submit"
         disabled={!file || !name.trim() || isUploading}
-        className="w-fit rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-fit px-4 py-2"
       >
         {isUploading ? "Uploading…" : "Upload and continue"}
-      </button>
+      </GlassButton>
+      </GlassCard>
     </form>
   );
 }

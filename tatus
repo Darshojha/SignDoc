@@ -1,0 +1,10 @@
+[33mcd40d56[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Record reset and loading verification
+[33m4f091ec[m Improve list empty states
+[33m7e967ab[m Add route loading states
+[33m657bb42[m Add signing link copy fallback
+[33m66aa58f[m Add password reset flow
+[33m1cc5530[m Record owner access verification
+[33m83b0aa4[m Scope envelopes and templates by owner
+[33ma40ed84[m Record rate limit verification
+[33m044e30d[m Add rate limiting and README
+[33m423053c[m Add signup invitation emails

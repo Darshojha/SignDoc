@@ -1,30 +1,44 @@
 @import "tailwindcss";
 
 :root {
-  --color-bg: #FAFAF9;
-  --color-surface: #FFFFFF;
-  --color-border: #E7E5E4;
-  --color-text-primary: #292524;
-  --color-text-secondary: #78716C;
-  --color-primary: #6366F1;
-  --color-primary-hover: #4F46E5;
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-danger: #EF4444;
+  color-scheme: light;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-hover: 0 4px 12px rgba(0,0,0,0.08);
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-12: 48px;
-  --background: var(--color-bg);
-  --foreground: var(--color-text-primary);
+  --theme-background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
+  --theme-surface: rgba(255, 255, 255, 0.72);
+  --theme-border: rgba(10, 10, 10, 0.08);
+  --theme-text-primary: #0f0f0f;
+  --theme-text-secondary: #5f5f5f;
+  --theme-accent: #d8d8d8;
+  --theme-accent-strong: #bdbdbd;
+  --theme-shadow-card: 0 10px 30px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  --theme-shadow-hover: 0 16px 40px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --background: var(--theme-background);
+  --foreground: var(--theme-text-primary);
+  --color-bg: var(--theme-background);
+  --color-surface: var(--theme-surface);
+  --color-border: var(--theme-border);
+  --color-text-primary: var(--theme-text-primary);
+  --color-text-secondary: var(--theme-text-secondary);
+  --color-primary: var(--theme-accent);
+  --color-primary-hover: var(--theme-accent-strong);
+  --color-success: #7d8b84;
+  --color-warning: #8a8069;
+  --color-danger: #8b6d6d;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --theme-background: linear-gradient(135deg, #0a0a0a 0%, #161616 100%);
+  --theme-surface: rgba(255, 255, 255, 0.05);
+  --theme-border: rgba(255, 255, 255, 0.12);
+  --theme-text-primary: #f5f5f5;
+  --theme-text-secondary: #b6b6b6;
+  --theme-accent: #d9d9d9;
+  --theme-accent-strong: #f2f2f2;
+  --theme-shadow-card: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --theme-shadow-hover: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {
@@ -34,8 +48,19 @@
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
+html {
+  background: var(--theme-background);
+  transition: background 300ms ease, color 300ms ease;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  min-height: 100vh;
+  background: var(--theme-background);
+  color: var(--theme-text-primary);
   font-family: Inter, -apple-system, sans-serif;
+  transition: background 300ms ease, color 300ms ease;
+}
+
+* {
+  transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease, box-shadow 300ms ease;
 }

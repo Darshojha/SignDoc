@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Template } from "@/lib/templates/types";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { GlassCard } from "@/components/ui/glass/GlassCard";
 
 type SignerInput = {
   assigned_role: string;
@@ -78,10 +80,9 @@ export function EnvelopeCreateForm({ templates }: { templates: Template[] }) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mt-6 flex flex-col gap-5 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-card)]"
-    >
+    <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
+      <GlassCard className="flex flex-col gap-5 p-6">
+
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <label htmlFor="template" className="text-sm font-medium text-[var(--color-text-primary)]">
@@ -122,18 +123,15 @@ export function EnvelopeCreateForm({ templates }: { templates: Template[] }) {
         <span className="text-sm font-medium text-[var(--color-text-primary)]">Signing order</span>
         <div className="flex gap-2">
           {(["sequential", "parallel"] as const).map((mode) => (
-            <button
+            <GlassButton
               key={mode}
               type="button"
               onClick={() => setSigningOrder(mode)}
-              className={`rounded-[var(--radius-md)] border px-4 py-2 text-sm font-medium ${
-                signingOrder === mode
-                  ? "border-[var(--color-primary)] bg-indigo-50 text-[var(--color-primary-hover)]"
-                  : "border-[var(--color-border)] bg-white text-[var(--color-text-primary)]"
-              }`}
+              variant={signingOrder === mode ? "default" : "ghost"}
+              className={`px-4 py-2 ${signingOrder === mode ? "border-[var(--color-primary)]" : ""}`}
             >
               {mode === "sequential" ? "Sequential" : "Parallel"}
-            </button>
+            </GlassButton>
           ))}
         </div>
       </div>
@@ -197,13 +195,14 @@ export function EnvelopeCreateForm({ templates }: { templates: Template[] }) {
         </p>
       )}
 
-      <button
+      <GlassButton
         type="submit"
-      disabled={status === "saving" || roles.length < MIN_SIGNERS}
-        className="w-fit rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={status === "saving" || roles.length < MIN_SIGNERS}
+        className="w-fit px-4 py-2"
       >
         {status === "saving" ? "Creating..." : "Create envelope"}
-      </button>
+      </GlassButton>
+      </GlassCard>
     </form>
   );
 }
