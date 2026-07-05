@@ -97,7 +97,9 @@ export function SignerDocumentWithFields({
                   <div className="absolute inset-0 z-10">
                     <DateFieldComposer
                       value={dateValue}
-                      onChange={(iso) => onDateChange?.(field.id, iso)}
+                      onChange={(iso) => {
+                        onDateChange?.(field.id, iso);
+                      }}
                       onClose={() => {}}
                     />
                   </div>
@@ -108,7 +110,9 @@ export function SignerDocumentWithFields({
                   <div className="absolute inset-0 z-10">
                     <TextFieldComposer
                       value={textValue}
-                      onChange={(val) => onTextChange?.(field.id, val)}
+                      onChange={(val) => {
+                        onTextChange?.(field.id, val);
+                      }}
                       onClose={() => {}}
                     />
                   </div>
@@ -160,6 +164,10 @@ export function SignerDocumentWithFields({
                   {captured ? (
                     field.field_type === 'checkbox' ? (
                       <span className="flex items-center justify-center text-emerald-600">✓</span>
+                    ) : field.field_type === 'date' || field.field_type === 'text' ? (
+                      <span className="flex h-full items-center justify-center truncate px-1 text-center text-[10px] text-[var(--color-text-primary)]">
+                        {captured.image_data}
+                      </span>
                     ) : (
                       <img
                         src={captured.image_data}
