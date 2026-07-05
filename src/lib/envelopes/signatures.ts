@@ -24,8 +24,8 @@ function fieldBelongsToSigner(field: TemplateField, assignedRole: string) {
   return field.assigned_role === assignedRole;
 }
 
-function isSignatureField(field: TemplateField) {
-  return field.field_type === "signature" || field.field_type === "initials";
+function isSignableField(field: TemplateField) {
+  return ["signature", "initials", "date", "text", "checkbox"].includes(field.field_type);
 }
 
 export async function getSignaturesForToken(token: string): Promise<CapturedSignature[]> {
@@ -53,8 +53,8 @@ export async function saveSignatureForToken(params: {
   method: SignatureMethod;
   ipAddress?: string | null;
 }): Promise<CapturedSignature> {
-  if (!params.imageData.startsWith("data:image/")) {
-    throw new Error("Signature must be a base64 PNG image.");
+  if (!params.imageData) {
+    throw new Error("Field value cannot be empty.");
   }
 
   const context = await resolveSignerContextByToken(params.token);
@@ -75,10 +75,12 @@ export async function saveSignatureForToken(params: {
     throw new Error("This field does not exist on the document.");
   }
   if (!fieldBelongsToSigner(field, context.signer.assigned_role)) {
-    throw new Error("You are not allowed to sign this field.");
+    throw new Error("You are not allowed to modify this field.");
   }
-  if (!isSignatureField(field)) {
-    throw new Error("Only signature and initials fields can be signed here.");
+  if (field.field_type !== "signature" && field.field_type !== "initials") {
+    if (params.imageData.startsWith("data:image/")) {
+      throw new Error("Only signature/initials fields can contain image data.");
+    }
   }
 
   const supabase = createSupabaseAdminClient();
@@ -135,9 +137,6 @@ export async function deleteSignatureForToken(params: {
   if (!fieldBelongsToSigner(field, context.signer.assigned_role)) {
     throw new Error("You are not allowed to modify this field.");
   }
-  if (!isSignatureField(field)) {
-    throw new Error("Only signature and initials fields can be cleared here.");
-  }
 
   const supabase = createSupabaseAdminClient();
   const { error } = await supabase
@@ -156,7 +155,7 @@ export async function deleteSignatureForToken(params: {
 
 export function getRequiredSignatureFields(fields: TemplateField[], assignedRole: string) {
   return fields.filter(
-    (field) => fieldBelongsToSigner(field, assignedRole) && isSignatureField(field),
+    (field) => fieldBelongsToSigner(field, assignedRole) && isSignableField(field),
   );
 }
 
