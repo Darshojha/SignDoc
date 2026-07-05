@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import dynamic from "next/dynamic";
-import type { EnvelopeWithDetails, SignerEnvelopeContext } from "@/lib/envelopes/types";
-import type { CapturedSignature } from "@/lib/envelopes/signatures";
-import type { TemplateField } from "@/lib/templates/types";
-import { SignatureCaptureModal } from "@/components/signing/SignatureCaptureModal";
-import { AmbientBackgroundMotion } from "@/components/ui/AmbientBackgroundMotion";
-import { GlassButton } from "@/components/ui/glass/GlassButton";
-import { GlassCard } from "@/components/ui/glass/GlassCard";
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import dynamic from 'next/dynamic';
+import type { EnvelopeWithDetails, SignerEnvelopeContext } from '@/lib/envelopes/types';
+import type { CapturedSignature } from '@/lib/envelopes/signatures';
+import type { TemplateField } from '@/lib/templates/types';
+import { SignatureCaptureModal } from '@/components/signing/SignatureCaptureModal';
+import { AmbientBackgroundMotion } from '@/components/ui/AmbientBackgroundMotion';
+import { GlassButton } from '@/components/ui/glass/GlassButton';
+import { GlassCard } from '@/components/ui/glass/GlassCard';
 
 const SignerDocumentWithFields = dynamic(
   () =>
-    import("@/components/signing/SignerDocumentWithFields").then(
+    import('@/components/signing/SignerDocumentWithFields').then(
       (module) => module.SignerDocumentWithFields,
     ),
   {
@@ -24,10 +24,10 @@ const SignerDocumentWithFields = dynamic(
 );
 
 function statusClass(status: string) {
-  if (status === "signed" || status === "COMPLETED") return "bg-emerald-50 text-[var(--color-success)]";
-  if (status === "declined" || status === "DECLINED") return "bg-red-50 text-[var(--color-danger)]";
-  if (status === "pending" || status === "DRAFT") return "bg-stone-100 text-[var(--color-text-secondary)]";
-  return "bg-amber-50 text-[var(--color-warning)]";
+  if (status === 'signed' || status === 'COMPLETED') return 'bg-emerald-50 text-[var(--color-success)]';
+  if (status === 'declined' || status === 'DECLINED') return 'bg-red-50 text-[var(--color-danger)]';
+  if (status === 'pending' || status === 'DRAFT') return 'bg-stone-100 text-[var(--color-text-secondary)]';
+  return 'bg-amber-50 text-[var(--color-warning)]';
 }
 
 function signaturesByFieldId(entries: CapturedSignature[]) {
@@ -41,7 +41,7 @@ export function SignerEnvelopeView({
   token: string;
   context: SignerEnvelopeContext;
 }) {
-  const [declineReason, setDeclineReason] = useState("");
+  const [declineReason, setDeclineReason] = useState('');
   const [envelope, setEnvelope] = useState<EnvelopeWithDetails>(context.envelope);
   const [signer, setSigner] = useState(context.signer);
   const [canSign, setCanSign] = useState(context.canSign);
@@ -52,21 +52,23 @@ export function SignerEnvelopeView({
   const [modalSaving, setModalSaving] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [status, setStatus] = useState<
-    "idle" | "submitting" | "declining" | "signed" | "declined" | "error"
+    'idle' | 'submitting' | 'declining' | 'signed' | 'declined' | 'error'
   >(
-    context.signer.status === "signed"
-      ? "signed"
-      : context.signer.status === "declined"
-        ? "declined"
-        : "idle",
+    context.signer.status === 'signed'
+      ? 'signed'
+      : context.signer.status === 'declined'
+        ? 'declined'
+        : 'idle',
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
+  const [contextMenu, setContextMenu] = useState<{ field: TemplateField; signature: CapturedSignature } | null>(null);
 
-  const signed = status === "signed" || signer.status === "signed";
-  const declined = status === "declined" || signer.status === "declined";
-  const waiting = !canSign && signer.status === "pending";
-  const displayStatus = signed ? "signed" : declined ? "declined" : signer.status;
+  const signed = status === 'signed' || signer.status === 'signed';
+  const declined = status === 'declined' || signer.status === 'declined';
+  const waiting = !canSign && signer.status === 'pending';
+  const displayStatus = signed ? 'signed' : declined ? 'declined' : signer.status;
   const currentCanSign = canSign;
 
   const signerFields = useMemo(
@@ -77,19 +79,24 @@ export function SignerEnvelopeView({
     [envelope.document?.field_layout, signer.assigned_role],
   );
 
+  const requiredFields = useMemo(
+    () => signerFields.filter((field) => field.assigned_role === signer.assigned_role && isFieldRequired(field)),
+    [signerFields, signer.assigned_role],
+  );
+
   const requiredSignatureFields = useMemo(
     () =>
-      signerFields.filter(
-        (field) => field.field_type === "signature" || field.field_type === "initials",
+      requiredFields.filter(
+        (field) => field.field_type === 'signature' || field.field_type === 'initials',
       ),
-    [signerFields],
+    [requiredFields],
   );
 
   const signatureMap = useMemo(() => signaturesByFieldId(signatures), [signatures]);
 
   const unsignedRequiredCount = useMemo(
-    () => requiredSignatureFields.filter((field) => !signatureMap[field.id]).length,
-    [requiredSignatureFields, signatureMap],
+    () => requiredFields.filter((field) => !isFieldFilled(field, signatureMap)).length,
+    [requiredFields, signatureMap],
   );
 
   const allRequiredSigned = unsignedRequiredCount === 0;
@@ -104,7 +111,7 @@ export function SignerEnvelopeView({
         const res = await fetch(`/api/v1/signing/${token}/signatures`);
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data?.error?.message ?? "Could not load saved signatures.");
+          throw new Error(data?.error?.message ?? 'Could not load saved signatures.');
         }
         if (!cancelled) {
           setSignatures(data.signatures ?? []);
@@ -126,10 +133,76 @@ export function SignerEnvelopeView({
     };
   }, [token]);
 
+  async function handleDateChange(fieldId: string, iso: string) {
+    if (!iso) {
+      setSignatures((current) => current.filter((entry) => entry.field_id !== fieldId));
+      return;
+    }
+    setSignatures((current) => {
+      const without = current.filter((entry) => entry.field_id !== fieldId);
+      return [
+        ...without,
+        {
+          id: crypto.randomUUID(),
+          envelope_id: envelope.id,
+          signer_id: signer.id,
+          field_id: fieldId,
+          image_data: iso,
+          method: 'typed',
+          signed_at: new Date().toISOString(),
+          ip_address: null,
+        } as CapturedSignature,
+      ];
+    });
+  }
+
+  async function handleTextChange(fieldId: string, text: string) {
+    if (!text) {
+      setSignatures((current) => current.filter((entry) => entry.field_id !== fieldId));
+      return;
+    }
+    setSignatures((current) => {
+      const without = current.filter((entry) => entry.field_id !== fieldId);
+      return [
+        ...without,
+        {
+          id: crypto.randomUUID(),
+          envelope_id: envelope.id,
+          signer_id: signer.id,
+          field_id: fieldId,
+          image_data: text,
+          method: 'typed',
+          signed_at: new Date().toISOString(),
+          ip_address: null,
+        } as CapturedSignature,
+      ];
+    });
+  }
+
+  function handleCheckboxToggle(fieldId: string, checked: boolean) {
+    setSignatures((current) => {
+      const without = current.filter((entry) => entry.field_id !== fieldId);
+      if (!checked) return without;
+      return [
+        ...without,
+        {
+          id: crypto.randomUUID(),
+          envelope_id: envelope.id,
+          signer_id: signer.id,
+          field_id: fieldId,
+          image_data: '✓',
+          method: 'typed',
+          signed_at: new Date().toISOString(),
+          ip_address: null,
+        } as CapturedSignature,
+      ];
+    });
+  }
+
   async function handleSignatureConfirm(payload: {
     imageDataUrl: string;
-    method: "typed" | "drawn" | "uploaded";
-    fieldType: "signature" | "initials";
+    method: 'typed' | 'drawn' | 'uploaded';
+    fieldType: 'signature' | 'initials';
   }) {
     if (!activeField) {
       return;
@@ -140,8 +213,8 @@ export function SignerEnvelopeView({
 
     try {
       const res = await fetch(`/api/v1/signing/${token}/signatures`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           field_id: activeField.id,
           image_data: payload.imageDataUrl,
@@ -150,7 +223,7 @@ export function SignerEnvelopeView({
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error?.message ?? "Could not save this signature.");
+        throw new Error(data?.error?.message ?? 'Could not save this signature.');
       }
 
       const saved = data.signature as CapturedSignature;
@@ -166,29 +239,38 @@ export function SignerEnvelopeView({
     }
   }
 
+  function validateRequiredFields() {
+    const errors: Record<string, boolean> = {};
+    requiredFields.forEach((field) => {
+      if (!isFieldFilled(field, signatureMap)) {
+        errors[field.id] = true;
+      }
+    });
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    if (requiredSignatureFields.length > 0 && !allRequiredSigned) {
-      setErrorMessage(
-        `Sign all required fields before completing (${unsignedRequiredCount} remaining).`,
-      );
+    if (!validateRequiredFields()) {
+      setErrorMessage('Please complete all required fields before signing.');
       return;
     }
 
-    setStatus("submitting");
+    setStatus('submitting');
     setErrorMessage(null);
     setSuccessMessage(null);
 
     try {
       const res = await fetch(`/api/v1/signing/${token}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signature_text: signer.name }),
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error?.message ?? "Could not complete signing.");
+        throw new Error(data?.error?.message ?? 'Could not complete signing.');
       }
 
       if (data?.envelope) {
@@ -200,35 +282,35 @@ export function SignerEnvelopeView({
         setCanSign(false);
       }
       setSuccessMessage(`Signed successfully. ${data?.envelope?.title ?? envelope.title} is now complete for this signer.`);
-      setStatus("signed");
+      setStatus('signed');
     } catch (err) {
-      setStatus("error");
+      setStatus('error');
       setErrorMessage((err as Error).message);
     }
   }
 
   async function handleDecline() {
     if (!declineReason.trim()) {
-      setErrorMessage("Provide a decline reason before submitting.");
+      setErrorMessage('Provide a decline reason before submitting.');
       return;
     }
 
-    setStatus("declining");
+    setStatus('declining');
     setErrorMessage(null);
     setSuccessMessage(null);
 
     try {
       const res = await fetch(`/api/v1/envelopes/${envelope.id}/signers/${signer.id}/decline`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "X-Signer-Token": token,
+          'Content-Type': 'application/json',
+          'X-Signer-Token': token,
         },
         body: JSON.stringify({ reason: declineReason }),
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error?.message ?? "Could not submit the decline.");
+        throw new Error(data?.error?.message ?? 'Could not submit the decline.');
       }
 
       if (data?.envelope) {
@@ -239,10 +321,10 @@ export function SignerEnvelopeView({
         }
         setCanSign(false);
       }
-      setStatus("declined");
-      setSuccessMessage("Declined successfully. The envelope is now closed for this signer.");
+      setStatus('declined');
+      setSuccessMessage('Declined successfully. The envelope is now closed for this signer.');
     } catch (err) {
-      setStatus("error");
+      setStatus('error');
       setErrorMessage((err as Error).message);
     }
   }
@@ -255,7 +337,7 @@ export function SignerEnvelopeView({
       <SignatureCaptureModal
         open={activeField !== null}
         fieldType={
-          activeField?.field_type === "initials" ? "initials" : "signature"
+          activeField?.field_type === 'initials' ? 'initials' : 'signature'
         }
         defaultName={signer.name}
         loading={modalSaving}
@@ -286,13 +368,13 @@ export function SignerEnvelopeView({
 
         {signed && (
           <GlassCard className="px-4 py-3 text-sm text-emerald-700">
-            {successMessage ?? "Signed successfully."}
+            {successMessage ?? 'Signed successfully.'}
           </GlassCard>
         )}
 
         {declined && (
           <GlassCard className="px-4 py-3 text-sm text-[var(--color-danger)]">
-            {successMessage ?? "Declined successfully."}
+            {successMessage ?? 'Declined successfully.'}
           </GlassCard>
         )}
 
@@ -316,6 +398,13 @@ export function SignerEnvelopeView({
                   signatures={signatureMap}
                   canInteract={currentCanSign && !signed && !declined}
                   onFieldClick={setActiveField}
+                  onFieldContextMenu={(field, signature) =>
+                    setContextMenu({ field, signature })
+                  }
+                  onDateChange={handleDateChange}
+                  onTextChange={handleTextChange}
+                  onCheckboxToggle={handleCheckboxToggle}
+                  fieldErrors={fieldErrors}
                 />
               ) : (
                 <iframe
@@ -331,15 +420,15 @@ export function SignerEnvelopeView({
             <h2 className="text-base font-semibold text-[var(--color-text-primary)]">Sign document</h2>
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
               {requiredSignatureFields.length > 0
-                ? "Click each signature field on the document, then complete signing."
-                : "Review the document and complete signing when ready."}
+                ? 'Click each signature field on the document, then complete signing.'
+                : 'Review the document and complete signing when ready.'}
             </p>
 
-            {signer.status === "signed" ? (
+            {signer.status === 'signed' ? (
               <p className="mt-4 rounded-[var(--radius-md)] bg-emerald-50/70 px-3 py-2 text-sm text-[var(--color-success)]">
                 This signer already completed the envelope.
               </p>
-            ) : signer.status === "declined" ? (
+            ) : signer.status === 'declined' ? (
               <p className="mt-4 rounded-[var(--radius-md)] bg-red-50/70 px-3 py-2 text-sm text-[var(--color-danger)]">
                 This signer already declined the envelope.
               </p>
@@ -378,7 +467,7 @@ export function SignerEnvelopeView({
                     </ul>
                     {!allRequiredSigned ? (
                       <p className="mt-3 text-xs text-[var(--color-warning)]">
-                        {unsignedRequiredCount} required field{unsignedRequiredCount === 1 ? "" : "s"} still need a signature.
+                        {unsignedRequiredCount} required field{unsignedRequiredCount === 1 ? '' : 's'} still need a signature.
                       </p>
                     ) : null}
                   </div>
@@ -387,14 +476,14 @@ export function SignerEnvelopeView({
                 <GlassButton
                   type="submit"
                   disabled={
-                    status === "submitting" ||
-                    status === "declining" ||
+                    status === 'submitting' ||
+                    status === 'declining' ||
                     signaturesLoading ||
                     (requiredSignatureFields.length > 0 && !allRequiredSigned)
                   }
                   className="w-full"
                 >
-                  {status === "submitting" ? "Completing…" : "Complete Signing"}
+                  {status === 'submitting' ? 'Completing…' : 'Complete Signing'}
                 </GlassButton>
 
                 <div className="rounded-[var(--radius-md)] border border-white/20 bg-white/20 p-4 backdrop-blur">
@@ -413,11 +502,11 @@ export function SignerEnvelopeView({
                   <GlassButton
                     type="button"
                     onClick={handleDecline}
-                    disabled={status === "submitting" || status === "declining"}
+                    disabled={status === 'submitting' || status === 'declining'}
                     className="mt-4 w-full"
                     variant="ghost"
                   >
-                    {status === "declining" ? "Declining..." : "Decline document"}
+                    {status === 'declining' ? 'Declining...' : 'Decline document'}
                   </GlassButton>
                 </div>
               </form>
@@ -447,7 +536,7 @@ export function SignerEnvelopeView({
                 <div className="flex items-center justify-between gap-4">
                   <dt className="text-[var(--color-text-secondary)]">Expires</dt>
                   <dd className="text-right font-medium text-[var(--color-text-primary)]">
-                    {new Date(envelope.expires_at).toLocaleDateString("en-US")}
+                    {new Date(envelope.expires_at).toLocaleDateString('en-US')}
                   </dd>
                 </div>
               </dl>
@@ -459,7 +548,73 @@ export function SignerEnvelopeView({
             </div>
           </GlassCard>
         </div>
+
+        {contextMenu ? (
+          <div
+            className="fixed inset-0 z-50"
+            onClick={() => setContextMenu(null)}
+          >
+            <div
+              className="absolute rounded-lg border border-white/20 bg-white/90 p-1 shadow-lg backdrop-blur"
+              style={{ top: contextMenu.field.y + '%', left: contextMenu.field.x + '%' }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm text-[var(--color-text-primary)] hover:bg-white/70"
+                onClick={() => {
+                  setActiveField(contextMenu.field);
+                  setContextMenu(null);
+                }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm text-[var(--color-danger)] hover:bg-red-50"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/v1/signing/${token}/signatures`, {
+                      method: 'DELETE',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ field_id: contextMenu.signature.field_id }),
+                    });
+                    if (!res.ok) {
+                      const data = await res.json().catch(() => ({}));
+                      throw new Error(data?.error?.message ?? 'Could not delete signature.');
+                    }
+                    setSignatures((current) =>
+                      current.filter((entry) => entry.field_id !== contextMenu.signature.field_id),
+                    );
+                  } catch (err) {
+                    setErrorMessage((err as Error).message);
+                  } finally {
+                    setContextMenu(null);
+                  }
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   );
+}
+
+function isFieldRequired(field: TemplateField): boolean {
+  return (field as TemplateField & { is_required?: boolean }).is_required === true;
+}
+
+function isFieldFilled(field: TemplateField, signatureMap: Record<string, CapturedSignature>): boolean {
+  const captured = signatureMap[field.id];
+  if (!captured) return false;
+  if (field.field_type === 'checkbox') return true;
+  if (field.field_type === 'date') {
+    const digits = captured.image_data.replace(/\D/g, '');
+    return digits.length === 8;
+  }
+  if (field.field_type === 'text') return captured.image_data.trim().length > 0;
+  return captured.image_data.trim().length > 0;
 }

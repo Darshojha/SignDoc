@@ -111,6 +111,49 @@ export async function saveSignatureForToken(params: {
   return data as CapturedSignature;
 }
 
+export async function deleteSignatureForToken(params: {
+  token: string;
+  fieldId: string;
+}): Promise<void> {
+  const context = await resolveSignerContextByToken(params.token);
+  if (!context) {
+    throw new Error("This signing link is invalid or expired.");
+  }
+  if (!context.canSign) {
+    throw new Error("This envelope is not ready for this signer.");
+  }
+
+  const document = context.envelope.document;
+  if (!document) {
+    throw new Error("Envelope has no document.");
+  }
+
+  const field = document.field_layout.find((candidate) => candidate.id === params.fieldId);
+  if (!field) {
+    throw new Error("This field does not exist on the document.");
+  }
+  if (!fieldBelongsToSigner(field, context.signer.assigned_role)) {
+    throw new Error("You are not allowed to modify this field.");
+  }
+  if (!isSignatureField(field)) {
+    throw new Error("Only signature and initials fields can be cleared here.");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("signatures")
+    .delete()
+    .eq("signer_id", context.signer.id)
+    .eq("field_id", params.fieldId);
+
+  if (error) {
+    if (error.code === "42501") {
+      throw new Error("Permission denied — this signing link cannot modify signatures.");
+    }
+    throw new Error(`Failed to delete signature: ${error.message}`);
+  }
+}
+
 export function getRequiredSignatureFields(fields: TemplateField[], assignedRole: string) {
   return fields.filter(
     (field) => fieldBelongsToSigner(field, assignedRole) && isSignatureField(field),

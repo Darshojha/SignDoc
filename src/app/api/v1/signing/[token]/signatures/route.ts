@@ -3,6 +3,7 @@ import { apiError, internalApiError } from "@/lib/api/errors";
 import {
   getSignaturesForToken,
   saveSignatureForToken,
+  deleteSignatureForToken,
   type SignatureMethod,
 } from "@/lib/envelopes/signatures";
 import { isSignerToken } from "@/lib/validation";
@@ -32,6 +33,53 @@ export async function GET(
     const signatures = await getSignaturesForToken(token);
     return NextResponse.json({ signatures });
   } catch (err) {
+    return internalApiError(err);
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ token: string }> },
+) {
+  const { token } = await params;
+  if (!isSignerToken(token)) {
+    return apiError("not_found", "This signing link is invalid or expired.", null);
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return apiError("invalid_request", "Expected a JSON body.", null);
+  }
+
+  const payload = body as { field_id?: unknown } | null;
+  const fieldId = payload?.field_id;
+
+  if (typeof fieldId !== "string" || fieldId.trim().length === 0) {
+    return apiError("invalid_request", "A field id is required.", "field_id");
+  }
+
+  try {
+    await deleteSignatureForToken({ token, fieldId });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.includes("invalid or expired")) {
+      return apiError("not_found", "This signing link is invalid or expired.", null);
+    }
+    if (message.includes("not ready for this signer")) {
+      return apiError("envelope_not_signable", "This envelope is not ready for this signer.", null);
+    }
+    if (message.includes("not allowed to modify")) {
+      return apiError("forbidden", "You are not allowed to modify this field.", null);
+    }
+    if (message.includes("Permission denied")) {
+      return apiError("forbidden", "Permission denied — this signing link cannot modify signatures.", null);
+    }
+    if (message.includes("does not exist")) {
+      return apiError("invalid_request", "This field does not exist on the document.", "field_id");
+    }
     return internalApiError(err);
   }
 }
