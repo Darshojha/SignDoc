@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 
 const STORAGE_KEY = 'signdoc-theme';
 const THEME_ATTRIBUTE = 'data-theme';
@@ -23,7 +23,9 @@ function getPreferredTheme(): ThemeMode {
 export function ThemeToggle() {
   const [theme, setTheme] = useState<ThemeMode>('light');
 
-  useEffect(() => {
+  // Initialize theme from storage/system preference.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useLayoutEffect(() => {
     const initialTheme = getPreferredTheme();
     setTheme(initialTheme);
     document.documentElement.setAttribute(THEME_ATTRIBUTE, initialTheme);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import {
   FIELD_TYPES,
@@ -43,6 +43,7 @@ export default function FieldPlacementEditorClient({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [contextFieldId, setContextFieldId] = useState<string | null>(null);
 
   function addField(page: number, fieldType: FieldType, centerXPct: number, centerYPct: number) {
     const size = DEFAULT_SIZE[fieldType];
@@ -57,6 +58,12 @@ export default function FieldPlacementEditorClient({
       assigned_role: "Signer 1",
     };
     setFields((prev) => [...prev, field]);
+  }
+
+  function updateField(id: string, updates: Partial<TemplateField>) {
+    setFields((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, ...updates } : f)),
+    );
   }
 
   function moveField(id: string, page: number, xPct: number, yPct: number) {
@@ -78,6 +85,8 @@ export default function FieldPlacementEditorClient({
     setFields((prev) => prev.filter((f) => f.id !== id));
   }
 
+  const contextField = contextFieldId ? fields.find((f) => f.id === contextFieldId) : null;
+
   function handleDrop(e: React.DragEvent<HTMLDivElement>, page: number) {
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -98,6 +107,17 @@ export default function FieldPlacementEditorClient({
       moveField(id, page, xPct, yPct);
     }
   }
+
+  useEffect(() => {
+    if (!contextFieldId) return;
+    const handler = () => setContextFieldId(null);
+    window.addEventListener('click', handler);
+    window.addEventListener('scroll', handler, true);
+    return () => {
+      window.removeEventListener('click', handler);
+      window.removeEventListener('scroll', handler, true);
+    };
+  }, [contextFieldId]);
 
   async function handleSave() {
     setSaveStatus("saving");
@@ -197,6 +217,11 @@ export default function FieldPlacementEditorClient({
                         }),
                       )
                     }
+                    onClick={() => setContextFieldId(field.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextFieldId(field.id);
+                    }}
                     style={{
                       left: `${field.x}%`,
                       top: `${field.y}%`,
@@ -209,7 +234,10 @@ export default function FieldPlacementEditorClient({
                     <button
                       type="button"
                       draggable={false}
-                      onClick={() => deleteField(field.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteField(field.id);
+                      }}
                       className="rounded-full bg-white px-1 leading-4 text-[var(--color-danger)] opacity-0 transition group-hover:opacity-100"
                       aria-label={`Remove ${FIELD_TYPE_LABELS[field.field_type]} field`}
                     >
@@ -217,6 +245,34 @@ export default function FieldPlacementEditorClient({
                     </button>
                   </div>
                 ))}
+              {contextField && (
+                <div
+                  className="fixed z-20 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white p-3 shadow-[var(--shadow-card)]"
+                  style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-[var(--color-text-primary)]">Configure field</span>
+                    <button
+                      type="button"
+                      onClick={() => setContextFieldId(null)}
+                      className="rounded-full px-2 text-xs text-[var(--color-danger)]"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="mt-3 grid gap-3 text-sm">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-medium text-[var(--color-text-secondary)]">Assigned role</label>
+                      <input
+                        value={contextField.assigned_role}
+                        onChange={(e) => updateField(contextField.id, { assigned_role: e.target.value })}
+                        className="rounded-[var(--radius-sm)] border border-[var(--color-border)] px-3 py-2 outline-none focus:border-[var(--color-primary)]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </Document>

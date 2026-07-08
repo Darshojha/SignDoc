@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { GlassButton } from '@/components/ui/glass/GlassButton';
 import { TypeSignatureComposer } from '@/components/signing/TypeSignatureComposer';
 import { DrawSignatureComposer } from '@/components/signing/DrawSignatureComposer';
@@ -38,11 +38,13 @@ export function SignatureCaptureModal({
 }: SignatureCaptureModalProps) {
   const [activeTab, setActiveTab] = useState<SignatureMethod>('typed');
 
-  useEffect(() => {
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useLayoutEffect(() => {
     if (open) {
       setActiveTab('typed');
     }
   }, [open]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!open) {
     return null;

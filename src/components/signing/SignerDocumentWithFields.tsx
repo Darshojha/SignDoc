@@ -150,6 +150,7 @@ export function SignerDocumentWithFields({
                     top: `${field.y}%`,
                     width: `${field.width}%`,
                     height: `${field.height}%`,
+                    zIndex: 10,
                   }}
                   className={`absolute overflow-hidden rounded-[var(--radius-sm)] border-2 px-1 text-[10px] font-medium transition ${
                     hasError

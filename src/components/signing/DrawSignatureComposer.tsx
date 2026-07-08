@@ -1,77 +1,33 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { GlassButton } from '@/components/ui/glass/GlassButton';
 import { GlassCard } from '@/components/ui/glass/GlassCard';
-
-const CANVAS_WIDTH = 900;
-const CANVAS_HEIGHT = 320;
 
 type Point = { x: number; y: number };
 type Stroke = Point[];
 
-type DrawSignatureComposerProps = {
-  onConfirm?: (imageDataUrl: string) => Promise<void> | void;
-};
-
-export function DrawSignatureComposer({ onConfirm }: DrawSignatureComposerProps) {
+export function DrawSignatureComposer({ onConfirm }: { onConfirm?: (imageDataUrl: string) => Promise<void> | void }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [activeStroke, setActiveStroke] = useState<Stroke>([]);
   const [pngDataUrl, setPngDataUrl] = useState<string | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return;
-    }
-
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT;
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    context.lineWidth = 2.8;
-    context.strokeStyle = '#0f172a';
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    context.strokeStyle = '#0f172a';
-  }, []);
-
-  useEffect(() => {
-    redraw();
-  }, [strokes, activeStroke]);
 
   const getPoint = (event: React.PointerEvent<HTMLCanvasElement> | React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas) {
-      return null;
-    }
+    if (!canvas) return null;
 
     const rect = canvas.getBoundingClientRect();
-    const scaleX = CANVAS_WIDTH / rect.width;
-    const scaleY = CANVAS_HEIGHT / rect.height;
-
-    if ('touches' in event) {
-      const touch = event.touches[0];
-      return {
-        x: (touch.clientX - rect.left) * scaleX,
-        y: (touch.clientY - rect.top) * scaleY,
-      };
-    }
+    const clientX = 'touches' in event ? event.touches[0].clientX : 'clientX' in event ? event.clientX : 0;
+    const clientY = 'touches' in event ? event.touches[0].clientY : 'clientY' in event ? event.clientY : 0;
 
     return {
-      x: (event.clientX - rect.left) * scaleX,
-      y: (event.clientY - rect.top) * scaleY,
+      x: clientX - rect.left,
+      y: clientY - rect.top,
     };
   };
 
-  const redraw = () => {
+  const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
@@ -82,72 +38,50 @@ export function DrawSignatureComposer({ onConfirm }: DrawSignatureComposerProps)
       return;
     }
 
-    context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    context.clearRect(0, 0, canvas.width, canvas.height);
 
-    strokes.forEach((stroke) => {
-      if (stroke.length < 2) {
-        return;
+    context.strokeStyle = '#0f172a';
+    context.lineWidth = 3;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+
+    const renderStroke = (points: Point[]) => {
+      if (points.length === 0) return;
+      context.beginPath();
+      context.moveTo(points[0].x, points[0].y);
+      for (let index = 1; index < points.length; index++) {
+        context.lineTo(points[index].x, points[index].y);
       }
-
-      context.beginPath();
-      context.moveTo(stroke[0].x, stroke[0].y);
-      stroke.slice(1).forEach((point) => context.lineTo(point.x, point.y));
       context.stroke();
-    });
+    };
 
-    if (activeStroke.length > 1) {
-      context.beginPath();
-      context.moveTo(activeStroke[0].x, activeStroke[0].y);
-      activeStroke.slice(1).forEach((point) => context.lineTo(point.x, point.y));
-      context.stroke();
-    }
-  };
+    strokes.forEach(renderStroke);
+    renderStroke(activeStroke);
+  }, [strokes, activeStroke]);
+
+  useEffect(() => {
+    redraw();
+  }, [redraw]);
 
   const startStroke = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const point = getPoint(event);
-    if (!point) {
-      return;
-    }
-
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setIsDrawing(true);
+    if (!point) return;
     setActiveStroke([point]);
   };
 
   const moveStroke = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) {
-      return;
-    }
-
     const point = getPoint(event);
-    if (!point) {
-      return;
-    }
-
+    if (!point) return;
     setActiveStroke((current) => [...current, point]);
   };
 
   const endStroke = () => {
-    if (!isDrawing) {
-      return;
+    if (activeStroke.length > 0) {
+      setStrokes((current) => [...current, activeStroke]);
     }
-
-    setStrokes((current) => [...current, activeStroke]);
     setActiveStroke([]);
-    setIsDrawing(false);
-  };
-
-  const handleClear = () => {
-    setStrokes([]);
-    setActiveStroke([]);
-    setPngDataUrl(null);
-  };
-
-  const handleUndo = () => {
-    setStrokes((current) => current.slice(0, -1));
-    setPngDataUrl(null);
   };
 
   const handleConfirm = async () => {
@@ -156,7 +90,17 @@ export function DrawSignatureComposer({ onConfirm }: DrawSignatureComposerProps)
       return;
     }
 
-    const dataUrl = canvas.toDataURL('image/png');
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.clientWidth;
+    exportCanvas.height = canvas.clientHeight;
+
+    const exportContext = exportCanvas.getContext('2d');
+    if (!exportContext) {
+      return;
+    }
+
+    exportContext.drawImage(canvas, 0, 0);
+    const dataUrl = exportCanvas.toDataURL('image/png');
     setPngDataUrl(dataUrl);
     if (onConfirm) {
       await onConfirm(dataUrl);
@@ -170,7 +114,7 @@ export function DrawSignatureComposer({ onConfirm }: DrawSignatureComposerProps)
 
     const link = document.createElement('a');
     link.href = pngDataUrl;
-    link.download = 'drawn-signature.png';
+    link.download = 'signature.png';
     link.click();
   };
 
@@ -185,17 +129,22 @@ export function DrawSignatureComposer({ onConfirm }: DrawSignatureComposerProps)
             Sketch a signature directly on canvas
           </h2>
           <p className="mt-2 text-sm leading-6 text-[var(--theme-text-secondary)]">
-            Use your mouse or finger to draw, then confirm to export a PNG version.
+            Use a mouse or touch to draw. Confirm to save the signature image.
           </p>
         </div>
 
+        <div className="rounded-[24px] border border-[color:var(--theme-border)] bg-white/55 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-xl">
+          <canvas
+            ref={canvasRef}
+            className="h-64 w-full touch-none rounded-[18px] border border-white/60 bg-white/40"
+            onPointerDown={startStroke}
+            onPointerMove={moveStroke}
+            onPointerUp={endStroke}
+            onPointerLeave={endStroke}
+          />
+        </div>
+
         <div className="flex flex-wrap items-center gap-3">
-          <GlassButton variant="ghost" onClick={handleUndo} className="px-4 py-2">
-            Undo
-          </GlassButton>
-          <GlassButton variant="ghost" onClick={handleClear} className="px-4 py-2">
-            Clear
-          </GlassButton>
           <GlassButton onClick={handleConfirm} className="px-4 py-2">
             Confirm signature
           </GlassButton>
@@ -204,26 +153,11 @@ export function DrawSignatureComposer({ onConfirm }: DrawSignatureComposerProps)
           </GlassButton>
         </div>
 
-        <div className="rounded-[24px] border border-[color:var(--theme-border)] bg-white/60 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-xl">
-          <canvas
-            ref={canvasRef}
-            className="h-48 w-full rounded-[18px] border border-white/70 bg-white"
-            onPointerDown={startStroke}
-            onPointerMove={moveStroke}
-            onPointerUp={endStroke}
-            onPointerLeave={endStroke}
-            onPointerCancel={endStroke}
-            style={{ touchAction: 'none' }}
-          />
-        </div>
-
         {pngDataUrl ? (
           <div className="space-y-3 rounded-[20px] border border-[color:var(--theme-border)] bg-[color:var(--theme-surface)]/70 p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-[var(--theme-text-primary)]">PNG ready</p>
-              <span className="text-xs uppercase tracking-[0.24em] text-[var(--theme-text-secondary)]">
-                export complete
-              </span>
+              <span className="text-xs uppercase tracking-[0.24em] text-[var(--theme-text-secondary)]">export complete</span>
             </div>
             <img src={pngDataUrl} alt="Generated signature preview" className="h-40 w-full rounded-[14px] border border-white/50 object-contain bg-white/70" />
           </div>

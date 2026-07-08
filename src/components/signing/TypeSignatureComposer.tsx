@@ -17,21 +17,6 @@ export function TypeSignatureComposer({ defaultName = "Alex Morgan", onConfirm }
   const [pngDataUrl, setPngDataUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  useEffect(() => {
-    const linkId = 'dancing-script-font';
-    if (!document.getElementById(linkId)) {
-      const link = document.createElement('link');
-      link.id = linkId;
-      link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap';
-      document.head.appendChild(link);
-    }
-  }, []);
-
-  useEffect(() => {
-    drawSignaturePreview(name);
-  }, [name]);
-
   const drawSignaturePreview = (value: string) => {
     const canvas = canvasRef.current;
     if (!canvas) {
@@ -70,6 +55,21 @@ export function TypeSignatureComposer({ defaultName = "Alex Morgan", onConfirm }
     context.fillStyle = '#0f172a';
     context.fillText(safeValue, PREVIEW_WIDTH / 2, PREVIEW_HEIGHT / 2 + 24);
   };
+
+  useEffect(() => {
+    const linkId = 'dancing-script-font';
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement('link');
+      link.id = linkId;
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap';
+      document.head.appendChild(link);
+    }
+  }, []);
+
+  useEffect(() => {
+    drawSignaturePreview(name);
+  }, [name, drawSignaturePreview]);
 
   const handleConfirm = async () => {
     const canvas = canvasRef.current;

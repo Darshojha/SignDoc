@@ -1,13 +1,15 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useLayoutEffect, useState } from 'react';
 
 export function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [visible, setVisible] = useState(true);
 
-  useEffect(() => {
+  // Animate page transitions on navigation.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useLayoutEffect(() => {
     setVisible(false);
     const frame = window.requestAnimationFrame(() => {
       setVisible(true);
