@@ -5,6 +5,7 @@ import { GlassButton } from '@/components/ui/glass/GlassButton';
 import { TypeSignatureComposer } from '@/components/signing/TypeSignatureComposer';
 import { DrawSignatureComposer } from '@/components/signing/DrawSignatureComposer';
 import { UploadSignatureComposer } from '@/components/signing/UploadSignatureComposer';
+import { alertClass } from '@/lib/status';
 
 type SignatureMethod = 'typed' | 'drawn' | 'uploaded';
 type SignatureCaptureModalProps = {
@@ -107,7 +108,7 @@ export function SignatureCaptureModal({
           <p className="mt-4 text-sm text-[var(--theme-text-secondary)]">Saving signature image…</p>
         ) : null}
         {errorMessage ? (
-          <p className="mt-4 rounded-[var(--radius-md)] bg-red-50/80 px-3 py-2 text-sm text-[var(--color-danger)]">
+          <p className={`mt-4 rounded-[var(--radius-md)] px-3 py-2 text-sm ${alertClass('error')}`}>
             {errorMessage}
           </p>
         ) : null}

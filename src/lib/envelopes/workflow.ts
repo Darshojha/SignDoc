@@ -4,7 +4,8 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { getTemplateById } from "@/lib/templates/db";
 import type { TemplateField } from "@/lib/templates/types";
-import { sendSignerInvitationEmail } from "@/lib/notifications";
+import { sendSignerInvitationEmail, sendEnvelopeCompletedEmail, sendDeclineEmail } from "@/lib/notifications";
+import { appendCompletionCertificate } from "@/lib/envelopes/certificate";
 import {
   copyTemplateToEnvelope,
   downloadEnvelopePdf,
@@ -109,6 +110,77 @@ async function updateEnvelopeStatus(params: {
     eventType: params.eventType,
     metadata: { status: params.status, ...(params.metadata ?? {}) },
   });
+}
+
+export async function voidEnvelope(id: string, ownerId: string): Promise<EnvelopeWithDetails> {
+  const details = await getEnvelopeDetails(id, ownerId);
+  if (!details) throw new Error("Envelope not found.");
+  if (isEnvelopeTerminal(details.status)) {
+    throw new Error("This envelope is already completed or closed.");
+  }
+
+  await updateEnvelopeStatus({
+    envelopeId: id,
+    status: "VOIDED",
+    actor: "system",
+    eventType: "envelope.voided",
+    extra: { completed_at: new Date().toISOString() },
+    metadata: { signer_count: details.signers.length },
+  });
+
+  return details;
+}
+
+export async function remindEnvelope(id: string, ownerId: string): Promise<EnvelopeWithDetails> {
+  const details = await getEnvelopeDetails(id, ownerId);
+  if (!details) throw new Error("Envelope not found.");
+  if (details.status !== "SENT" && details.status !== "VIEWED" && details.status !== "PARTIALLY_SIGNED") {
+    throw new Error("Only sent envelopes can be reminded.");
+  }
+
+  await notifyActionableSigners(details);
+
+  await logEnvelopeEvent({
+    envelopeId: id,
+    actor: "system",
+    eventType: "envelope.reminder_sent",
+    metadata: { actionable_signers: actionableSigners(details).map((s) => s.id) },
+  });
+
+  return details;
+}
+
+export async function resendEnvelope(id: string, ownerId: string): Promise<EnvelopeWithDetails> {
+  const details = await getEnvelopeDetails(id, ownerId);
+  if (!details) throw new Error("Envelope not found.");
+  if (details.status !== "SENT" && details.status !== "VIEWED" && details.status !== "PARTIALLY_SIGNED") {
+    throw new Error("Only sent envelopes can be resent.");
+  }
+
+  for (const signer of details.signers) {
+    const token = deriveSignerToken({ envelopeId: details.id, signerId: signer.id });
+    const supabase = createSupabaseAdminClient();
+    const { error } = await supabase
+      .from("envelope_signers")
+      .update({
+        access_token_hash: hashSignerToken(token),
+        access_token_expires_at: new Date(details.expires_at).toISOString(),
+      })
+      .eq("id", signer.id);
+
+    if (error) throw new Error(`Failed to refresh signer link: ${error.message}`);
+  }
+
+  await notifyActionableSigners(details);
+
+  await logEnvelopeEvent({
+    envelopeId: id,
+    actor: "system",
+    eventType: "envelope.resend",
+    metadata: { signer_count: details.signers.length },
+  });
+
+  return details;
 }
 
 export async function listEnvelopes(ownerId: string): Promise<Envelope[]> {
@@ -315,31 +387,25 @@ async function notifyActionableSigners(details: EnvelopeWithDetails) {
   const signers = actionableSigners(details);
   if (signers.length === 0) return;
 
-  const results = await Promise.allSettled(
-    signers.map((signer) =>
-      sendSignerInvitationEmail({
-        signerName: signer.name,
-        signerEmail: signer.user_email,
-        documentName: details.title,
-        signingUrl: `${appBaseUrl()}/sign/${deriveSignerToken({
-          envelopeId: details.id,
-          signerId: signer.id,
-        })}`,
-      }),
-    ),
-  );
-
-  results.forEach((result, index) => {
-    if (result.status === "rejected") {
-      const signer = signers[index];
+  // Fire-and-forget: don't block the sign/send request on a slow email provider.
+  for (const signer of signers) {
+    void sendSignerInvitationEmail({
+      signerName: signer.name,
+      signerEmail: signer.user_email,
+      documentName: details.title,
+      signingUrl: `${appBaseUrl()}/sign/${deriveSignerToken({
+        envelopeId: details.id,
+        signerId: signer.id,
+      })}`,
+    }).catch((error) =>
       console.error("Failed to send signer invitation email", {
         envelopeId: details.id,
         signerId: signer.id,
         signerEmail: signer.user_email,
-        error: result.reason,
-      });
-    }
-  });
+        error,
+      }),
+    );
+  }
 }
 
 async function getSignerByToken(token: string) {
@@ -482,6 +548,12 @@ export async function declineEnvelopeWithToken(params: {
     },
   });
 
+  void sendDeclineEmail({
+    signerEmail: signer.user_email,
+    documentName: envelope.title,
+    reason,
+  });
+
   return getEnvelopeDetails(envelope.id);
 }
 
@@ -489,10 +561,51 @@ function fieldBelongsToSigner(field: TemplateField, signer: EnvelopeSigner) {
   return field.assigned_role === signer.assigned_role;
 }
 
+type FieldCapture = { field_id: string; image_data: string };
+
+async function loadSignerCaptures(signerId: string): Promise<Record<string, string>> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("signatures")
+    .select("field_id, image_data")
+    .eq("signer_id", signerId);
+
+  if (error) throw new Error(`Failed to load captured field values: ${error.message}`);
+
+  const map: Record<string, string> = {};
+  for (const row of (data ?? []) as FieldCapture[]) {
+    map[row.field_id] = row.image_data;
+  }
+  return map;
+}
+
+function dataUrlToBytes(dataUrl: string): Uint8Array {
+  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  return new Uint8Array(Buffer.from(base64, "base64"));
+}
+
+// A required field is satisfied once the signer has a stored capture for it.
+// Signature/initials must be an embedded image; other types just need a value.
+function captureSatisfiesField(field: TemplateField, value: string | undefined): boolean {
+  if (value === undefined || value === "") return false;
+  if (field.field_type === "signature" || field.field_type === "initials") {
+    return value.startsWith("data:image/");
+  }
+  return true;
+}
+
+function formatCapturedDate(value: string): string {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("en-US");
+}
+
+// Renders THIS signer's captured field values onto the current document, layering
+// on top of any prior signer's marks (signed_storage_path). Reads the signatures
+// table so drawn/typed/uploaded images and text/date/dropdown/checkbox values all
+// land in the final PDF instead of a single stamped name.
 async function renderSignaturePdf(params: {
   details: EnvelopeWithDetails;
   signer: EnvelopeSigner;
-  signatureText: string;
 }) {
   if (!params.details.document) throw new Error("Envelope has no document.");
 
@@ -501,46 +614,58 @@ async function renderSignaturePdf(params: {
   const pdfBytes = await downloadEnvelopePdf(sourcePath);
   const pdfDoc = await PDFDocument.load(pdfBytes);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const captures = await loadSignerCaptures(params.signer.id);
 
   for (const field of params.details.document.field_layout.filter((field) =>
     fieldBelongsToSigner(field, params.signer),
   )) {
-    const page = pdfDoc.getPage(field.page - 1);
+    const raw = captures[field.id];
+    if (raw === undefined || raw === "") continue; // nothing captured for this field
+
+    const pageIndex = field.page - 1;
+    if (pageIndex < 0 || pageIndex >= pdfDoc.getPageCount()) continue;
+    const page = pdfDoc.getPage(pageIndex);
     const { width, height } = page.getSize();
     const x = (field.x / 100) * width;
     const y = height - ((field.y + field.height) / 100) * height;
     const fieldWidth = (field.width / 100) * width;
     const fieldHeight = (field.height / 100) * height;
-    const value =
-      field.field_type === "date"
-        ? new Date().toLocaleDateString("en-US")
-        : field.field_type === "checkbox"
-          ? "X"
-          : field.field_type === "initials"
-            ? params.signatureText
-                .split(/\s+/)
-                .map((part) => part[0])
-                .join("")
-                .toUpperCase()
-            : params.signatureText;
 
-    page.drawRectangle({
-      x,
-      y,
-      width: fieldWidth,
-      height: fieldHeight,
-      borderColor: rgb(0.39, 0.4, 0.95),
-      borderWidth: 0.75,
-      color: rgb(1, 1, 1),
-      opacity: 0.92,
-    });
+    if (field.field_type === "signature" || field.field_type === "initials") {
+      if (!raw.startsWith("data:image/")) continue;
+      try {
+        const bytes = dataUrlToBytes(raw);
+        const image = raw.startsWith("data:image/png")
+          ? await pdfDoc.embedPng(bytes)
+          : await pdfDoc.embedJpg(bytes);
+        const dims = image.scaleToFit(fieldWidth, fieldHeight);
+        page.drawImage(image, {
+          x: x + (fieldWidth - dims.width) / 2,
+          y: y + (fieldHeight - dims.height) / 2,
+          width: dims.width,
+          height: dims.height,
+        });
+      } catch (err) {
+        console.error("Failed to embed signature image", { fieldId: field.id, err });
+      }
+      continue;
+    }
+
+    const value =
+      field.field_type === "checkbox"
+        ? "X"
+        : field.field_type === "date"
+          ? formatCapturedDate(raw)
+          : raw;
+
+    const size = Math.min(18, Math.max(8, fieldHeight * 0.7));
     page.drawText(value, {
-      x: x + 4,
-      y: y + Math.max(4, fieldHeight / 2 - 5),
-      size: Math.min(18, Math.max(9, fieldHeight * 0.36)),
+      x: x + 2,
+      y: y + Math.max(2, (fieldHeight - size) / 2),
+      size,
       font,
-      color: rgb(0.16, 0.15, 0.14),
-      maxWidth: fieldWidth - 8,
+      color: rgb(0.1, 0.1, 0.12),
+      maxWidth: fieldWidth - 4,
     });
   }
 
@@ -556,7 +681,19 @@ export async function signEnvelopeWithToken(params: { token: string; signatureTe
   if (!tokenContext.canSign) throw new Error("This envelope is not ready for this signer.");
 
   const { envelope, signer } = tokenContext;
-  const signedPdf = await renderSignaturePdf({ details: envelope, signer, signatureText });
+  if (!envelope.document) throw new Error("Envelope has no document.");
+
+  // Trust boundary: don't rely on the client to enforce required fields.
+  const captures = await loadSignerCaptures(signer.id);
+  const requiredFields = envelope.document.field_layout.filter(
+    (field) => fieldBelongsToSigner(field, signer) && field.is_required,
+  );
+  const unmet = requiredFields.filter((field) => !captureSatisfiesField(field, captures[field.id]));
+  if (unmet.length > 0) {
+    throw new Error("Complete all required fields before signing.");
+  }
+
+  const signedPdf = await renderSignaturePdf({ details: envelope, signer });
   const signedStoragePath = await uploadSignedEnvelopePdf(envelope.id, signedPdf);
 
   const supabase = createSupabaseAdminClient();
@@ -605,6 +742,22 @@ export async function signEnvelopeWithToken(params: { token: string; signatureTe
       eventType: "envelope.completed",
       extra: { completed_at: now },
     });
+
+    // Stamp the audit certificate onto the final PDF before notifying anyone.
+    const completed = await getEnvelopeDetails(envelope.id);
+    if (completed) {
+      await appendCompletionCertificate(completed).catch((err) =>
+        console.error("Failed to append completion certificate", { envelopeId: envelope.id, err }),
+      );
+    }
+
+    // Notify every signer that the fully-executed document is available.
+    for (const recipient of refreshed.signers) {
+      void sendEnvelopeCompletedEmail({
+        signerEmail: recipient.user_email,
+        documentName: envelope.title,
+      });
+    }
   } else {
     await updateEnvelopeStatus({
       envelopeId: envelope.id,

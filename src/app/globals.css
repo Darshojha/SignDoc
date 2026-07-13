@@ -21,11 +21,24 @@
   --color-border: var(--theme-border);
   --color-text-primary: var(--theme-text-primary);
   --color-text-secondary: var(--theme-text-secondary);
-  --color-primary: var(--theme-accent);
-  --color-primary-hover: var(--theme-accent-strong);
-  --color-success: #7d8b84;
-  --color-warning: #8a8069;
-  --color-danger: #8b6d6d;
+  /* Primary is a high-contrast metallic so buttons/links stay legible in both themes. */
+  --color-primary: #1f2937;
+  --color-primary-hover: #111827;
+  --color-on-primary: #ffffff;
+  --color-success: #047857;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
+  /* Soft status surfaces: tinted background + full-strength text, readable on any theme. */
+  --status-success-bg: rgba(16, 185, 129, 0.14);
+  --status-success-text: #047857;
+  --status-warning-bg: rgba(245, 158, 11, 0.16);
+  --status-warning-text: #b45309;
+  --status-danger-bg: rgba(239, 68, 68, 0.14);
+  --status-danger-text: #b91c1c;
+  --status-neutral-bg: rgba(120, 113, 108, 0.16);
+  --status-neutral-text: #57534e;
+  --surface-raised: rgba(0, 0, 0, 0.05);
+  --surface-raised-hover: rgba(0, 0, 0, 0.09);
 }
 
 :root[data-theme="dark"] {
@@ -39,6 +52,22 @@
   --theme-accent-strong: #f2f2f2;
   --theme-shadow-card: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --theme-shadow-hover: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --color-primary: #e5e5e5;
+  --color-primary-hover: #ffffff;
+  --color-on-primary: #0a0a0a;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --status-success-bg: rgba(16, 185, 129, 0.18);
+  --status-success-text: #34d399;
+  --status-warning-bg: rgba(245, 158, 11, 0.20);
+  --status-warning-text: #fbbf24;
+  --status-danger-bg: rgba(239, 68, 68, 0.20);
+  --status-danger-text: #f87171;
+  --status-neutral-bg: rgba(255, 255, 255, 0.10);
+  --status-neutral-text: #d6d3d1;
+  --surface-raised: rgba(255, 255, 255, 0.10);
+  --surface-raised-hover: rgba(255, 255, 255, 0.16);
 }
 
 @theme inline {

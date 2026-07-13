@@ -37,7 +37,7 @@ export async function listTemplates(ownerId: string): Promise<Template[]> {
     throw new Error(`Failed to list templates: ${error.message}`);
   }
 
-  return (data as TemplateRow[]).map(toTemplate);
+  return ((data ?? []) as TemplateRow[]).map(toTemplate);
 }
 
 export async function insertTemplate(params: {

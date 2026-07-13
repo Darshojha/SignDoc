@@ -113,8 +113,10 @@ export async function POST(
   if (typeof fieldId !== "string" || fieldId.trim().length === 0) {
     return apiError("invalid_request", "A field id is required.", "field_id");
   }
-  if (typeof imageData !== "string" || !imageData.startsWith("data:image/")) {
-    return apiError("invalid_request", "Signature must be a base64 PNG image.", "image_data");
+  // Signature/initials send a data:image URL; date/text/dropdown/checkbox send plain
+  // text. saveSignatureForToken enforces which fields may carry image data.
+  if (typeof imageData !== "string" || imageData.trim().length === 0) {
+    return apiError("invalid_request", "A field value is required.", "image_data");
   }
   if (!isSignatureMethod(method)) {
     return apiError("invalid_request", "Signature method must be typed, drawn, or uploaded.", "method");

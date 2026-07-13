@@ -8,6 +8,7 @@ import {
 import type { CapturedSignature } from '@/lib/envelopes/signatures';
 import { DateFieldComposer } from '@/components/signing/DateFieldComposer';
 import { TextFieldComposer } from '@/components/signing/TextFieldComposer';
+import { DropdownFieldComposer } from '@/components/signing/DropdownFieldComposer';
 
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
@@ -24,6 +25,7 @@ type SignerDocumentWithFieldsProps = {
   onDateChange?: (fieldId: string, value: string) => void;
   onTextChange?: (fieldId: string, value: string) => void;
   onCheckboxToggle?: (fieldId: string, checked: boolean) => void;
+  onDropdownChange?: (fieldId: string, value: string) => void;
   fieldErrors?: Record<string, boolean>;
 };
 
@@ -38,6 +40,7 @@ export function SignerDocumentWithFields({
   onDateChange,
   onTextChange,
   onCheckboxToggle,
+  onDropdownChange,
   fieldErrors = {},
 }: SignerDocumentWithFieldsProps) {
   return (
@@ -64,6 +67,13 @@ export function SignerDocumentWithFields({
               const isSignable =
                 canInteract &&
                 (field.field_type === 'signature' || field.field_type === 'initials');
+              const isDropdown = field.field_type === 'dropdown';
+              const isFulfillable =
+                canInteract &&
+                (isSignable ||
+                  field.field_type === 'date' ||
+                  field.field_type === 'text' ||
+                  isDropdown);
               const autoValue =
                 field.field_type === 'date'
                   ? new Date().toLocaleDateString('en-US')
@@ -106,12 +116,26 @@ export function SignerDocumentWithFields({
                 ) : null;
 
               const textEditor =
-                field.field_type === 'text' && canInteract && !captured ? (
+                field.field_type === "text" && canInteract && !captured ? (
                   <div className="absolute inset-0 z-10">
                     <TextFieldComposer
                       value={textValue}
                       onChange={(val) => {
                         onTextChange?.(field.id, val);
+                      }}
+                      onClose={() => {}}
+                    />
+                  </div>
+                ) : null;
+
+              const dropdownEditor =
+                isDropdown && canInteract && !captured ? (
+                  <div className="absolute inset-0 z-10">
+                    <DropdownFieldComposer
+                      options={field.dropdown_options ?? []}
+                      value=""
+                      onChange={(val) => {
+                        onDropdownChange?.(field.id, val);
                       }}
                       onClose={() => {}}
                     />
@@ -129,7 +153,7 @@ export function SignerDocumentWithFields({
                       }}
                       className={`flex h-6 w-6 items-center justify-center rounded border-2 text-sm transition ${
                         captured
-                          ? 'border-emerald-500 bg-emerald-500 text-white'
+                          ? 'border-emerald-600 bg-emerald-600 text-white'
                           : 'border-[var(--color-primary)] bg-white text-transparent'
                       }`}
                     >
@@ -142,7 +166,7 @@ export function SignerDocumentWithFields({
                 <button
                   key={field.id}
                   type="button"
-                  disabled={!isSignable && field.field_type !== 'date' && field.field_type !== 'text' && field.field_type !== 'checkbox'}
+                  disabled={!isFulfillable && !isDropdown}
                   onClick={handleClick}
                   onContextMenu={handleContextMenu}
                   style={{
@@ -154,18 +178,18 @@ export function SignerDocumentWithFields({
                   }}
                   className={`absolute overflow-hidden rounded-[var(--radius-sm)] border-2 px-1 text-[10px] font-medium transition ${
                     hasError
-                      ? 'border-red-500 bg-red-50'
+                      ? 'border-[var(--color-danger)] bg-red-50'
                       : captured
-                        ? 'border-emerald-400 bg-white/90'
-                        : isSignable
-                          ? 'cursor-pointer border-[var(--color-primary)] bg-indigo-50/80 text-[var(--color-primary-hover)] hover:bg-indigo-100/90'
-                          : 'border-[var(--color-border)] bg-white/70 text-[var(--color-text-secondary)]'
+                      ? 'border-emerald-400 bg-white/90'
+                      : isFulfillable
+                        ? 'cursor-pointer border-[var(--color-primary)] bg-indigo-50/80 text-[var(--color-primary-hover)] hover:bg-indigo-100/90'
+                        : 'border-[var(--color-border)] bg-white/70 text-[var(--color-text-secondary)]'
                   }`}
                 >
                   {captured ? (
                     field.field_type === 'checkbox' ? (
                       <span className="flex items-center justify-center text-emerald-600">✓</span>
-                    ) : field.field_type === 'date' || field.field_type === 'text' ? (
+                    ) : field.field_type === 'date' || field.field_type === 'text' || field.field_type === 'dropdown' ? (
                       <span className="flex h-full items-center justify-center truncate px-1 text-center text-[10px] text-[var(--color-text-primary)]">
                         {captured.image_data}
                       </span>
@@ -191,6 +215,7 @@ export function SignerDocumentWithFields({
                   )}
                   {dateEditor}
                   {textEditor}
+                  {dropdownEditor}
                   {checkboxEditor}
                 </button>
               );

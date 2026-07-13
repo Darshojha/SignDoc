@@ -12,6 +12,14 @@ export function envelopeSignedPath(envelopeId: string, documentName = "document.
   return `${envelopeId}/signed/${documentName}`;
 }
 
+// Each signed revision gets a unique, immutable path. Overwriting one path made
+// Supabase's Smart CDN serve stale copies to the next signer/cert/owner view.
+// ponytail: superseded revisions are left in storage (no GC). Fine for internal
+// volume; upgrade path is a cleanup pass keyed off envelope_documents history.
+function envelopeSignedRevisionPath(envelopeId: string) {
+  return `${envelopeId}/signed/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.pdf`;
+}
+
 export async function copyTemplateToEnvelope(params: {
   templateStoragePath: string;
   envelopeId: string;
@@ -37,10 +45,10 @@ export async function copyTemplateToEnvelope(params: {
 
 export async function uploadSignedEnvelopePdf(envelopeId: string, bytes: Uint8Array) {
   const supabase = createSupabaseAdminClient();
-  const path = envelopeSignedPath(envelopeId);
+  const path = envelopeSignedRevisionPath(envelopeId);
   const { error } = await supabase.storage
     .from(ENVELOPES_BUCKET)
-    .upload(path, bytes, { contentType: "application/pdf", upsert: true });
+    .upload(path, bytes, { contentType: "application/pdf", upsert: false });
 
   if (error) {
     throw new Error(`Failed to upload signed PDF: ${error.message}`);

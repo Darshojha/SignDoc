@@ -4,6 +4,7 @@ export const FIELD_TYPES = [
   "date",
   "text",
   "checkbox",
+  "dropdown",
 ] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -14,6 +15,7 @@ export const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   date: "Date",
   text: "Text",
   checkbox: "Checkbox",
+  dropdown: "Dropdown",
 };
 
 // x/y/width/height are percentages (0-100) of page width/height, anchored
@@ -27,6 +29,8 @@ export type TemplateField = {
   height: number;
   field_type: FieldType;
   assigned_role: string;
+  is_required?: boolean;
+  dropdown_options?: string[];
 };
 
 export type Template = {
@@ -45,6 +49,14 @@ export function isFieldType(value: unknown): value is FieldType {
 export function isTemplateField(value: unknown): value is TemplateField {
   if (!value || typeof value !== "object") return false;
   const f = value as Record<string, unknown>;
+  if (f.is_required !== undefined && typeof f.is_required !== "boolean") return false;
+  if (
+    f.dropdown_options !== undefined &&
+    (!Array.isArray(f.dropdown_options) ||
+      !f.dropdown_options.every((option) => typeof option === "string"))
+  ) {
+    return false;
+  }
   return (
     typeof f.id === "string" &&
     typeof f.page === "number" &&

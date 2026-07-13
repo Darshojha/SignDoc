@@ -56,6 +56,9 @@ export async function POST(
     if (message.includes("not ready for this signer")) {
       return apiError("envelope_not_signable", "This envelope is not ready for this signer.", null);
     }
+    if (message.includes("required fields")) {
+      return apiError("invalid_request", "Complete all required fields before signing.", null);
+    }
     return internalApiError(err);
   }
 }

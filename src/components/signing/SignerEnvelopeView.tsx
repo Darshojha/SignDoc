@@ -9,6 +9,7 @@ import { SignatureCaptureModal } from '@/components/signing/SignatureCaptureModa
 import { AmbientBackgroundMotion } from '@/components/ui/AmbientBackgroundMotion';
 import { GlassButton } from '@/components/ui/glass/GlassButton';
 import { GlassCard } from '@/components/ui/glass/GlassCard';
+import { statusBadgeClass, alertClass } from '@/lib/status';
 
 const SignerDocumentWithFields = dynamic(
   () =>
@@ -22,13 +23,6 @@ const SignerDocumentWithFields = dynamic(
     ),
   },
 );
-
-function statusClass(status: string) {
-  if (status === 'signed' || status === 'COMPLETED') return 'bg-emerald-50 text-[var(--color-success)]';
-  if (status === 'declined' || status === 'DECLINED') return 'bg-red-50 text-[var(--color-danger)]';
-  if (status === 'pending' || status === 'DRAFT') return 'bg-stone-100 text-[var(--color-text-secondary)]';
-  return 'bg-amber-50 text-[var(--color-warning)]';
-}
 
 function signaturesByFieldId(entries: CapturedSignature[]) {
   return Object.fromEntries(entries.map((entry) => [entry.field_id, entry]));
@@ -133,70 +127,68 @@ export function SignerEnvelopeView({
     };
   }, [token]);
 
-  async function handleDateChange(fieldId: string, iso: string) {
-    if (!iso) {
+  // Persist a non-signature field value (date/text/dropdown/checkbox) so it survives
+  // reload and lands in the final signed PDF. Optimistic, reverts on error.
+  async function persistFieldValue(fieldId: string, value: string) {
+    const optimistic: CapturedSignature = {
+      id: crypto.randomUUID(),
+      envelope_id: envelope.id,
+      signer_id: signer.id,
+      field_id: fieldId,
+      image_data: value,
+      method: 'typed',
+      signed_at: new Date().toISOString(),
+      ip_address: null,
+    };
+    setSignatures((current) => [...current.filter((entry) => entry.field_id !== fieldId), optimistic]);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/v1/signing/${token}/signatures`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ field_id: fieldId, image_data: value, method: 'typed' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message ?? 'Could not save this field.');
+      const saved = data.signature as CapturedSignature;
+      setSignatures((current) => [...current.filter((entry) => entry.field_id !== fieldId), saved]);
+    } catch (err) {
       setSignatures((current) => current.filter((entry) => entry.field_id !== fieldId));
-      return;
+      setErrorMessage((err as Error).message);
     }
-    setSignatures((current) => {
-      const without = current.filter((entry) => entry.field_id !== fieldId);
-      return [
-        ...without,
-        {
-          id: crypto.randomUUID(),
-          envelope_id: envelope.id,
-          signer_id: signer.id,
-          field_id: fieldId,
-          image_data: iso,
-          method: 'typed',
-          signed_at: new Date().toISOString(),
-          ip_address: null,
-        } as CapturedSignature,
-      ];
-    });
   }
 
-  async function handleTextChange(fieldId: string, text: string) {
-    if (!text) {
-      setSignatures((current) => current.filter((entry) => entry.field_id !== fieldId));
-      return;
+  async function removeFieldValue(fieldId: string) {
+    setSignatures((current) => current.filter((entry) => entry.field_id !== fieldId));
+    try {
+      const res = await fetch(`/api/v1/signing/${token}/signatures`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ field_id: fieldId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error?.message ?? 'Could not clear this field.');
+      }
+    } catch (err) {
+      setErrorMessage((err as Error).message);
     }
-    setSignatures((current) => {
-      const without = current.filter((entry) => entry.field_id !== fieldId);
-      return [
-        ...without,
-        {
-          id: crypto.randomUUID(),
-          envelope_id: envelope.id,
-          signer_id: signer.id,
-          field_id: fieldId,
-          image_data: text,
-          method: 'typed',
-          signed_at: new Date().toISOString(),
-          ip_address: null,
-        } as CapturedSignature,
-      ];
-    });
+  }
+
+  function handleDateChange(fieldId: string, iso: string) {
+    return iso ? persistFieldValue(fieldId, iso) : removeFieldValue(fieldId);
+  }
+
+  function handleDropdownChange(fieldId: string, value: string) {
+    return value ? persistFieldValue(fieldId, value) : removeFieldValue(fieldId);
+  }
+
+  function handleTextChange(fieldId: string, text: string) {
+    return text ? persistFieldValue(fieldId, text) : removeFieldValue(fieldId);
   }
 
   function handleCheckboxToggle(fieldId: string, checked: boolean) {
-    setSignatures((current) => {
-      const without = current.filter((entry) => entry.field_id !== fieldId);
-      if (!checked) return without;
-      return [
-        ...without,
-        {
-          id: crypto.randomUUID(),
-          envelope_id: envelope.id,
-          signer_id: signer.id,
-          field_id: fieldId,
-          image_data: '✓',
-          method: 'typed',
-          signed_at: new Date().toISOString(),
-          ip_address: null,
-        } as CapturedSignature,
-      ];
-    });
+    return checked ? persistFieldValue(fieldId, '✓') : removeFieldValue(fieldId);
   }
 
   async function handleSignatureConfirm(payload: {
@@ -361,25 +353,25 @@ export function SignerEnvelopeView({
               {signer.name} · {signer.assigned_role}
             </p>
           </div>
-          <span className={`w-fit rounded-full border border-white/20 bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur ${statusClass(displayStatus)}`}>
+          <span className={`w-fit rounded-full border border-white/20 bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur ${statusBadgeClass(displayStatus)}`}>
             {displayStatus}
           </span>
         </GlassCard>
 
         {signed && (
-          <GlassCard className="px-4 py-3 text-sm text-emerald-700">
+          <GlassCard className={`px-4 py-3 text-sm ${alertClass('success')}`}>
             {successMessage ?? 'Signed successfully.'}
           </GlassCard>
         )}
 
         {declined && (
-          <GlassCard className="px-4 py-3 text-sm text-[var(--color-danger)]">
+          <GlassCard className={`px-4 py-3 text-sm ${alertClass('error')}`}>
             {successMessage ?? 'Declined successfully.'}
           </GlassCard>
         )}
 
         {waiting && (
-          <GlassCard className="px-4 py-3 text-sm text-amber-700">
+          <GlassCard className={`px-4 py-3 text-sm ${alertClass('warning')}`}>
             This envelope is waiting on earlier signers. You can review the document, but signing is not ready yet.
           </GlassCard>
         )}
@@ -404,6 +396,7 @@ export function SignerEnvelopeView({
                   onDateChange={handleDateChange}
                   onTextChange={handleTextChange}
                   onCheckboxToggle={handleCheckboxToggle}
+                  onDropdownChange={handleDropdownChange}
                   fieldErrors={fieldErrors}
                 />
               ) : (
@@ -424,21 +417,21 @@ export function SignerEnvelopeView({
                 : 'Review the document and complete signing when ready.'}
             </p>
 
-            {signer.status === 'signed' ? (
-              <p className="mt-4 rounded-[var(--radius-md)] bg-emerald-50/70 px-3 py-2 text-sm text-[var(--color-success)]">
-                This signer already completed the envelope.
-              </p>
-            ) : signer.status === 'declined' ? (
-              <p className="mt-4 rounded-[var(--radius-md)] bg-red-50/70 px-3 py-2 text-sm text-[var(--color-danger)]">
-                This signer already declined the envelope.
-              </p>
+                {signer.status === 'signed' ? (
+                  <p className={`mt-4 rounded-[var(--radius-md)] px-3 py-2 text-sm ${alertClass('success')}`}>
+                    This signer already completed the envelope.
+                  </p>
+                ) : signer.status === 'declined' ? (
+                  <p className={`mt-4 rounded-[var(--radius-md)] px-3 py-2 text-sm ${alertClass('error')}`}>
+                    This signer already declined the envelope.
+                  </p>
             ) : currentCanSign ? (
               <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
                 {signaturesLoading ? (
                   <p className="text-sm text-[var(--color-text-secondary)]">Loading saved signatures…</p>
                 ) : null}
                 {signaturesLoadError ? (
-                  <p className="rounded-[var(--radius-md)] bg-red-50/70 px-3 py-2 text-sm text-[var(--color-danger)]">
+                  <p className={`rounded-[var(--radius-md)] px-3 py-2 text-sm ${alertClass('error')}`}>
                     {signaturesLoadError}
                   </p>
                 ) : null}
@@ -510,11 +503,11 @@ export function SignerEnvelopeView({
                   </GlassButton>
                 </div>
               </form>
-            ) : (
-              <p className="mt-4 rounded-[var(--radius-md)] bg-stone-100/70 px-3 py-2 text-sm text-[var(--color-text-secondary)]">
-                Signing is not available yet for this signer.
-              </p>
-            )}
+                ) : (
+                  <p className={`mt-4 rounded-[var(--radius-md)] px-3 py-2 text-sm ${alertClass('warning')}`}>
+                    Signing is not available yet for this signer.
+                  </p>
+                )}
 
             <div className="mt-6 border-t border-white/20 pt-4">
               <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">
@@ -541,7 +534,7 @@ export function SignerEnvelopeView({
                 </div>
               </dl>
               {errorMessage && (
-                <p className="mt-4 rounded-[var(--radius-md)] bg-red-50/70 px-3 py-2 text-sm text-[var(--color-danger)]">
+                <p className={`mt-4 rounded-[var(--radius-md)] px-3 py-2 text-sm ${alertClass('error')}`}>
                   {errorMessage}
                 </p>
               )}
@@ -559,16 +552,18 @@ export function SignerEnvelopeView({
               style={{ top: contextMenu.field.y + '%', left: contextMenu.field.x + '%' }}
               onClick={(event) => event.stopPropagation()}
             >
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm text-[var(--color-text-primary)] hover:bg-white/70"
-                onClick={() => {
-                  setActiveField(contextMenu.field);
-                  setContextMenu(null);
-                }}
-              >
-                Edit
-              </button>
+              {contextMenu.field.field_type === 'signature' || contextMenu.field.field_type === 'initials' ? (
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm text-[var(--color-text-primary)] hover:bg-white/70"
+                  onClick={() => {
+                    setActiveField(contextMenu.field);
+                    setContextMenu(null);
+                  }}
+                >
+                  Edit
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm text-[var(--color-danger)] hover:bg-red-50"

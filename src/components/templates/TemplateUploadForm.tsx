@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { GlassCard } from "@/components/ui/glass/GlassCard";
+import { alertClass } from "@/lib/status";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -101,7 +102,7 @@ export function TemplateUploadForm() {
       </div>
 
       {errorMessage && (
-        <p className="rounded-[var(--radius-sm)] bg-red-50 px-3 py-2 text-sm text-[var(--color-danger)]">
+        <p className={`rounded-[var(--radius-sm)] px-3 py-2 text-sm ${alertClass("error")}`}>
           {errorMessage}
         </p>
       )}

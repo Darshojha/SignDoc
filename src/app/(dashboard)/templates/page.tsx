@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { listTemplates } from "@/lib/templates/db";
 import { requireServerUser } from "@/lib/auth/server";
 import { AmbientBackgroundMotion } from "@/components/ui/AmbientBackgroundMotion";
 import { GlassCard } from "@/components/ui/glass/GlassCard";
 import { GlassNavItem } from "@/components/ui/glass/GlassNavItem";
+import { TemplateList } from "@/components/templates/TemplateList";
 
 export const dynamic = "force-dynamic";
 
@@ -36,38 +36,10 @@ export default async function TemplatesPage() {
               Upload your first document and place signature fields on it to create a
               reusable template.
             </p>
-            <Link
-              href="/templates/new"
-              className="mt-2 inline-flex items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--color-primary-hover)]"
-            >
-              Upload your first document
-            </Link>
+            <GlassNavItem href="/templates/new">Upload your first document</GlassNavItem>
           </GlassCard>
         ) : (
-          <ul className="mt-6 grid gap-3">
-            {templates.map((template) => (
-              <li key={template.id}>
-                <GlassCard interactive className="p-0">
-                  <Link
-                    href={`/templates/${template.id}/edit`}
-                    className="flex items-center justify-between rounded-[var(--radius-lg)] px-5 py-4"
-                  >
-                    <div>
-                      <p className="font-medium text-[var(--color-text-primary)]">
-                        {template.name}
-                      </p>
-                      <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                        {template.page_count} page{template.page_count === 1 ? "" : "s"} ·{" "}
-                        {template.field_layout.length} field
-                        {template.field_layout.length === 1 ? "" : "s"} placed
-                      </p>
-                    </div>
-                    <span className="text-sm text-[var(--color-text-secondary)]">Edit →</span>
-                  </Link>
-                </GlassCard>
-              </li>
-            ))}
-          </ul>
+          <TemplateList initialTemplates={templates} />
         )}
       </div>
     </div>

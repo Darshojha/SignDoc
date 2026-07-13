@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored minified worker and standalone Node scripts aren't app source.
+    "public/**",
+    "scripts/**",
   ]),
 ]);
 

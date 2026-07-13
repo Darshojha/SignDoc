@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Template } from "@/lib/templates/types";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { GlassCard } from "@/components/ui/glass/GlassCard";
+import { alertClass } from "@/lib/status";
 
 type SignerInput = {
   assigned_role: string;
@@ -183,14 +184,14 @@ export function EnvelopeCreateForm({ templates }: { templates: Template[] }) {
           ))}
         </div>
         {roles.length === 0 && (
-          <p className="mt-3 rounded-[var(--radius-sm)] bg-amber-50 px-3 py-2 text-sm text-[var(--color-warning)]">
+          <p className={`mt-3 rounded-[var(--radius-sm)] px-3 py-2 text-sm ${alertClass("warning")}`}>
             This template has no fields yet. Place fields before creating an envelope.
           </p>
         )}
       </div>
 
       {errorMessage && (
-        <p className="rounded-[var(--radius-sm)] bg-red-50 px-3 py-2 text-sm text-[var(--color-danger)]">
+        <p className={`rounded-[var(--radius-sm)] px-3 py-2 text-sm ${alertClass("error")}`}>
           {errorMessage}
         </p>
       )}
